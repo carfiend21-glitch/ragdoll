@@ -19,6 +19,16 @@ Up to 4 players each get their own room and noob, and have 90 seconds to do the 
 
 The lobby and rooms are built by code (`src/server/WorldBuilder.luau`), so the place file stays empty.
 
+## Selling weapons for Robux
+
+Weapons are sold as Game Passes (bought once, kept forever).
+
+1. Publish the game, then on create.roblox.com open it → **Monetization → Passes → Create a Pass**.
+2. Give it a name, picture and price, and turn on **Item for Sale**.
+3. Copy the pass's ID number and paste it into that weapon's `gamePassId` in `src/shared/Weapons.luau`.
+
+A weapon with `gamePassId = 0` shows as "not for sale yet".
+
 ## Adding things
 
 - **Weapon:** add it to `src/shared/Weapons.luau`, a model in `src/shared/ItemModels.luau`, and what it does in `src/server/Items.luau`.

@@ -1,4 +1,5 @@
--- Picking a weapon, placing it in your room, dragging it around and clicking it.
+-- Picking a weapon, placing it in your room and dragging it around (drop it in
+-- the trash can to sell it). Only allowed while setting up, not during a run.
 -- Works with a mouse or a touch screen.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,13 +21,26 @@ local MOVE_SEND_INTERVAL = 0.05 -- seconds between drag updates sent to the serv
 local Placement = {}
 Placement.__index = Placement
 
--- Your room number while a round is on, or nil
+-- Your room number while you're allowed to change its weapons
+-- (during a round, while setting up, not during a run), or nil
 local function activeRoom()
 	local room = player:GetAttribute("Room")
-	if Remotes.GameState:GetAttribute("Phase") == "Round" and room and room > 0 then
-		return room
+	if Remotes.GameState:GetAttribute("Phase") ~= "Round" or not room or room <= 0 then
+		return nil
 	end
-	return nil
+	local rooms = Workspace:FindFirstChild("Rooms")
+	local roomModel = rooms and rooms:FindFirstChild("Room" .. room)
+	if not roomModel or roomModel:GetAttribute("InRun") then
+		return nil
+	end
+	return room
+end
+
+-- What a placed weapon sells back for: its price, times how much of its life is left
+local function sellValue(model)
+	local weapon = Weapons.byId[model.Name]
+	local uses = model:GetAttribute("Uses") or weapon.uses
+	return math.floor(weapon.price * uses / weapon.uses)
 end
 
 local function screenRay(position)
@@ -120,7 +134,11 @@ end
 
 function Placement:_updateGhost()
 	local ghost, room = self.ghost, activeRoom()
-	if not ghost or not room then
+	if not ghost then
+		return
+	end
+	if not room then
+		self:cancel() -- a run started
 		return
 	end
 	-- Touch screens can't hover, so they don't get a preview
@@ -135,7 +153,7 @@ function Placement:_updateGhost()
 		return
 	end
 	local weapon = Weapons.byId[self.selected]
-	ghost:PivotTo(CFrame.new(Config.clampToRoom(room, point, weapon.size, weapon.onFloor)))
+	ghost:PivotTo(Config.placementFor(room, weapon, point))
 	ghost.Parent = Workspace
 end
 
@@ -214,20 +232,32 @@ function Placement:_onInputChanged(input)
 	end
 
 	local screen = Vector2.new(input.Position.X, input.Position.Y)
-	if not press.dragging and (screen - press.start).Magnitude < DRAG_THRESHOLD then
+	if not press.dragging then
+		if (screen - press.start).Magnitude < DRAG_THRESHOLD then
+			return
+		end
+		press.dragging = true
+		self.hud:flashHint(("Drag it into the 🗑️ trash can to sell it for $%d."):format(sellValue(press.model)))
+	end
+
+	-- Over the trash can: light it up, and leave the weapon where it was
+	local weapon = Weapons.byId[press.model.Name]
+	local overTrash = self.hud:isOverTrash(input.Position)
+	self.hud:setTrashHover(overTrash, sellValue(press.model))
+	if overTrash then
 		return
 	end
-	press.dragging = true
 
 	local point = pointInRoom(screenRay(input.Position), room)
 	if not point then
 		return
 	end
-	local weapon = Weapons.byId[press.model.Name]
-	point = Config.clampToRoom(room, point, weapon.size, weapon.onFloor)
 	press.point = point
 	-- Move it on our screen right away so dragging feels smooth; the server catches up
-	press.model:PivotTo(CFrame.new(point) * press.model:GetPivot().Rotation)
+	-- (and works out the same spot: snapped to a surface, or kept inside the room)
+	local placement = Config.placementFor(room, weapon, point)
+	local rotation = if weapon.anySurface then placement.Rotation else press.model:GetPivot().Rotation
+	press.model:PivotTo(CFrame.new(placement.Position) * rotation)
 	if os.clock() - press.lastSent >= MOVE_SEND_INTERVAL then
 		press.lastSent = os.clock()
 		Remotes.MoveItem:FireServer(press.model:GetAttribute("ItemId"), point)
@@ -246,14 +276,17 @@ function Placement:_onInputEnded(input)
 		return
 	end
 	self.press = nil
+	if not press.dragging then
+		return
+	end
 
 	local itemId = press.model:GetAttribute("ItemId")
-	if press.dragging then
-		if press.point then
-			Remotes.MoveItem:FireServer(itemId, press.point)
-		end
-	else
-		Remotes.ActivateItem:FireServer(itemId) -- a click, not a drag: fire it!
+	self.hud:setTrashHover(false)
+	if self.hud:isOverTrash(input.Position) then
+		Remotes.RemoveItem:FireServer(itemId)
+		press.model.Parent = nil -- hide it right away; the server removes it for real
+	elseif press.point then
+		Remotes.MoveItem:FireServer(itemId, press.point)
 	end
 end
 

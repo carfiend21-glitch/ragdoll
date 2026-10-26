@@ -7,13 +7,19 @@ local EVENTS = {
 	-- player -> server
 	"PlaceItem",
 	"MoveItem",
-	"ActivateItem",
-	"ResetNoob",
+	"RemoveItem",
+	"SetRunning",
+	"Restart",
+	"Spectate",
 	-- server -> player
 	"DataSync",
 	"AchievementUnlocked",
 	"HitFx",
 	"Results",
+	"Notify",
+	"Hint",
+	"ReplayReset",
+	"ReplayChunk",
 }
 local FUNCTIONS = { "GetData" }
 

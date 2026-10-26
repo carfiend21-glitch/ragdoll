@@ -1,5 +1,6 @@
--- During a round, locks the camera to a straight-on side view of your room,
--- like the original game. In the lobby you get the normal Roblox camera back.
+-- During a round, locks the camera to a straight-on side view of your room (or the
+-- room you're spectating), like the original game. In the lobby you get the normal
+-- Roblox camera back.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9,36 +10,51 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 
+local Layout = require(script.Parent.Layout)
+
 local player = Players.LocalPlayer
 
--- A narrow field of view makes the room look flat, like a 2D game
-local ROOM_FOV = 40
+-- A narrow field of view makes the room look flat, like the 2D original,
+-- while still showing a sliver of the side walls, floor and ceiling
+local ROOM_FOV = 25
 local DEFAULT_FOV = 70
 
 local CameraController = {}
 
--- The room to look at, or nil while in the lobby
+-- The room to look at (and whether we're just spectating it), or nil while in the lobby
 local function roomToShow()
-	local room = player:GetAttribute("Room")
 	local phase = Remotes.GameState:GetAttribute("Phase")
+	local room = player:GetAttribute("Room")
 	if room and room > 0 and (phase == "Round" or phase == "Results") then
-		return room
+		return room, false
 	end
-	return nil
+	local watching = player:GetAttribute("Spectating")
+	if watching and watching > 0 and phase == "Round" then
+		return watching, true
+	end
+	return nil, false
 end
 
--- Pulls the camera back just far enough to fit the whole room on screen
-local function roomView(room, viewport)
-	local origin = Config.getRoomOrigin(room)
+-- Places the camera straight in front of the room so the room's open front
+-- exactly fills the space between the menus (see Layout)
+local function roomView(room, viewport, spectating)
+	local area = if spectating then Layout.getSpectator(viewport) else Layout.get(viewport).room
 	local size = Config.ROOM_SIZE
 	local tanHalf = math.tan(math.rad(ROOM_FOV / 2))
-	local aspect = viewport.X / math.max(viewport.Y, 1)
-	-- Extra room at the top and bottom of the screen for the menus
-	local fitHeight = (size.Y * 0.5 * 1.3) / tanHalf
-	local fitWidth = (size.X * 0.5 * 1.05) / (tanHalf * aspect)
-	local distance = math.max(fitHeight, fitWidth) + size.Z / 2
-	local target = origin + Vector3.new(0, size.Y / 2 - 1.5, 0)
-	return CFrame.lookAt(target + Vector3.new(0, 0, distance), target)
+
+	-- How far back the camera must be for the room to fit the area's height and width
+	local fitHeight = size.Y * viewport.Y / (2 * tanHalf * area.height)
+	local fitWidth = size.X * viewport.Y / (2 * tanHalf * area.width)
+	local distance = math.max(fitHeight, fitWidth)
+	local pixelsPerStud = viewport.Y / (2 * tanHalf * distance)
+
+	-- The area isn't in the middle of the screen (the side panel is on the right),
+	-- so slide the camera sideways/up instead of turning it, which keeps the view flat
+	local shiftX = (area.x + area.width / 2) - viewport.X / 2
+	local shiftY = (area.y + area.height / 2) - viewport.Y / 2
+	local roomFront = Config.getRoomOrigin(room) + Vector3.new(0, size.Y / 2, size.Z / 2)
+	local position = roomFront + Vector3.new(-shiftX / pixelsPerStud, shiftY / pixelsPerStud, distance)
+	return CFrame.new(position) -- looking straight ahead, into the room
 end
 
 function CameraController.start()
@@ -51,7 +67,7 @@ function CameraController.start()
 	local inRoom = false
 	RunService:BindToRenderStep("RoomCamera", Enum.RenderPriority.Camera.Value + 1, function()
 		local camera = Workspace.CurrentCamera
-		local room = roomToShow()
+		local room, spectating = roomToShow()
 		if room then
 			if not inRoom then
 				inRoom = true
@@ -61,7 +77,7 @@ function CameraController.start()
 			end
 			camera.CameraType = Enum.CameraType.Scriptable
 			camera.FieldOfView = ROOM_FOV
-			camera.CFrame = roomView(room, camera.ViewportSize)
+			camera.CFrame = roomView(room, camera.ViewportSize, spectating)
 		elseif inRoom then
 			inRoom = false
 			if controls then
