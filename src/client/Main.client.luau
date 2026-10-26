@@ -60,44 +60,61 @@ Remotes.ReplayReset.OnClientEvent:Connect(Replay.reset)
 Remotes.ReplayChunk.OnClientEvent:Connect(Replay.addPiece)
 
 -- Chill music in the lobby. While you're playing or watching a round it fades over
--- to the round music, which lets you feel the clock ticking.
+-- to dark, ticking-clock suspense music, and in the last few seconds to a faster
+-- "double time" version of it.
 local music = Sounds.newMusic("LobbyMusic")
 music:Play()
-local roundMusic = Sounds.newMusic("RoundMusic")
-local FINAL_STRETCH = 15 -- seconds left when the round music speeds up a little
-local inRound = false
-local function updateMusic()
-	local phase = Remotes.GameState:GetAttribute("Phase")
-	inRound = phase == "Round"
-		and ((player:GetAttribute("Room") or 0) > 0 or (player:GetAttribute("Spectating") or 0) > 0)
-	if inRound and not roundMusic.IsPlaying then
-		-- From the top every round, so the music builds along with the timer
-		roundMusic.TimePosition = 0
-		roundMusic.PlaybackSpeed = 1
-		roundMusic:Play()
+local roundTracks = {
+	{ sound = Sounds.newMusic("RoundMusic"), volume = Sounds.LIST.RoundMusic.volume },
+	{ sound = Sounds.newMusic("RoundMusicFinal"), volume = Sounds.LIST.RoundMusicFinal.volume },
+}
+local FINAL_STRETCH = 15 -- seconds left when the round music switches to double time
+local FADE = TweenInfo.new(1.5)
+local wantedTrack = nil -- the round track that should be playing (nil = lobby music)
+
+-- Fades over to `track` (or back to the lobby music if nil). Tracks start from the
+-- top each time, and stop once they've faded out.
+local function playRoundTrack(track)
+	if track == wantedTrack then
+		return
 	end
-	local fade = TweenInfo.new(1.5)
-	TweenService:Create(music, fade, { Volume = if inRound then 0 else Sounds.LIST.LobbyMusic.volume }):Play()
-	local roundFade = TweenService:Create(roundMusic, fade, { Volume = if inRound then Sounds.LIST.RoundMusic.volume else 0 })
-	roundFade:Play()
-	if not inRound then
-		-- Stop it once it has faded out, so it starts from the top next round. A fade
-		-- that got cut short by a newer one also counts as "Completed", so check that
-		-- this fade really finished and we're still out of the round.
-		roundFade.Completed:Once(function(state)
-			if state == Enum.PlaybackState.Completed and not inRound then
-				roundMusic:Stop()
-			end
-		end)
+	wantedTrack = track
+	TweenService:Create(music, FADE, { Volume = if track then 0 else Sounds.LIST.LobbyMusic.volume }):Play()
+	for _, other in roundTracks do
+		local sound = other.sound
+		if other == track then
+			sound.TimePosition = 0
+			sound:Play()
+			TweenService:Create(sound, FADE, { Volume = other.volume }):Play()
+		else
+			local fadeOut = TweenService:Create(sound, FADE, { Volume = 0 })
+			fadeOut:Play()
+			-- A fade that got cut short by a newer one also counts as "Completed",
+			-- so only stop it if this fade really finished and it's still not wanted
+			fadeOut.Completed:Once(function(state)
+				if state == Enum.PlaybackState.Completed and wantedTrack ~= other then
+					sound:Stop()
+				end
+			end)
+		end
 	end
 end
--- The last few seconds of a round: the music picks up the pace a little
-Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(function()
-	local timeLeft = Remotes.GameState:GetAttribute("TimeLeft") or 0
-	if Remotes.GameState:GetAttribute("Phase") == "Round" and timeLeft <= FINAL_STRETCH and roundMusic.IsPlaying then
-		TweenService:Create(roundMusic, TweenInfo.new(1), { PlaybackSpeed = 1.12 }):Play()
+
+local function updateMusic()
+	local inRound = Remotes.GameState:GetAttribute("Phase") == "Round"
+		and ((player:GetAttribute("Room") or 0) > 0 or (player:GetAttribute("Spectating") or 0) > 0)
+	if not inRound then
+		playRoundTrack(nil)
+	elseif wantedTrack == nil then
+		-- Always start on the normal track: right as a round starts, the time left can
+		-- still be the lobby countdown's last second for a moment
+		playRoundTrack(roundTracks[1])
+	elseif (Remotes.GameState:GetAttribute("TimeLeft") or 0) <= FINAL_STRETCH then
+		playRoundTrack(roundTracks[2])
 	end
-end)
+end
+-- The last few seconds of a round switch to the double time music
+Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Room"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Spectating"):Connect(updateMusic)
 

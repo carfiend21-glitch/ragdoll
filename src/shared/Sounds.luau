@@ -60,9 +60,10 @@ Sounds.LIST = {
 	Beep = { id = 9117060347, volume = 0.3, vary = 0 },
 	-- Music
 	LobbyMusic = { id = 9043887091, volume = 0.3, vary = 0 }, -- "Lo-fi Chill A"
-	-- During a round: a focused, ticking game-show bed (marimba, strings, shaker) that
-	-- says "the clock is running" without being scary. 99 seconds, about one round long.
-	RoundMusic = { id = 9042796310, volume = 0.45, vary = 0 }, -- "Cutting It Close" (APM)
+	-- During a round: dark heist suspense with a ticking clock, to fit a noob getting
+	-- torn apart against the clock. The last 15 seconds switch to its "double time" version.
+	RoundMusic = { id = 1835342630, volume = 0.45, vary = 0 }, -- "Deadly Heist Clock Ticking" (APM)
+	RoundMusicFinal = { id = 1835342628, volume = 0.45, vary = 0 }, -- "... Clock Ticking Double Time" (APM)
 }
 
 -- Room sounds can be heard from your own room's camera, but fade out before the
