@@ -60,11 +60,10 @@ Sounds.LIST = {
 	Beep = { id = 9117060347, volume = 0.3, vary = 0 },
 	-- Music
 	LobbyMusic = { id = 9043887091, volume = 0.3, vary = 0 }, -- "Lo-fi Chill A"
-	-- During a round: a dark crime-drama tension cue (icy piano, pulsing cello) for a noob
-	-- getting torn apart against the clock. No synths or sci-fi. ("Deadly Heist Clock
-	-- Ticking" is only the clock layer of a song, so it is just fast ticks on top for the
-	-- last 15 seconds.)
-	RoundMusic = { id = 9043558464, volume = 0.5, vary = 0 }, -- "Voyager Suspense (d)" (APM/KPM, 147 s)
+	-- During a round: "Heist Time" (picked by the user), from 55 seconds in.
+	-- `startAt` = where in the song it starts. ("Deadly Heist Clock Ticking" is only the
+	-- clock layer of a song, so it is just fast ticks on top for the last 15 seconds.)
+	RoundMusic = { id = 1837463238, volume = 0.5, vary = 0, startAt = 55 }, -- "Heist Time" (APM)
 	FinalTicks = { id = 1835342628, volume = 0.3, vary = 0 }, -- "Deadly Heist Clock Ticking Double Time" (APM)
 }
 

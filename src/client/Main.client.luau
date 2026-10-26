@@ -60,19 +60,20 @@ Remotes.ReplayReset.OnClientEvent:Connect(Replay.reset)
 Remotes.ReplayChunk.OnClientEvent:Connect(Replay.addPiece)
 
 -- Chill music in the lobby. While you're playing or watching a round it fades over
--- to dark crime-thriller music (from the top each round), and for the last few
--- seconds fast clock ticks join in on top.
+-- to the round music ("Heist Time", from 55 seconds in, every round), and for the
+-- last few seconds fast clock ticks join in on top.
 local FINAL_STRETCH = 15 -- seconds left when the clock ticks join in
 local FADE = TweenInfo.new(1.5)
 
 local function newLayer(name)
-	return { sound = Sounds.newMusic(name), volume = Sounds.LIST[name].volume, on = false }
+	local info = Sounds.LIST[name]
+	return { sound = Sounds.newMusic(name), volume = info.volume, startAt = info.startAt or 0, on = false }
 end
 local lobbyLayer = newLayer("LobbyMusic")
 local roundLayer = newLayer("RoundMusic")
 local ticksLayer = newLayer("FinalTicks")
 
--- Fades a layer in (playing from the top) or out (then stops it)
+-- Fades a layer in (playing from its `startAt` in Sounds.LIST, or the top) or out (then stops it)
 local function setLayer(layer, on)
 	if layer.on == on then
 		return
@@ -80,7 +81,7 @@ local function setLayer(layer, on)
 	layer.on = on
 	local sound = layer.sound
 	if on then
-		sound.TimePosition = 0
+		sound.TimePosition = layer.startAt
 		sound:Play()
 	end
 	local fade = TweenService:Create(sound, FADE, { Volume = if on then layer.volume else 0 })
