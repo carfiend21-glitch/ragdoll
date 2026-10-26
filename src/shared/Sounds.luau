@@ -62,7 +62,7 @@ Sounds.LIST = {
 	LobbyMusic = { id = 9043887091, volume = 0.3, vary = 0 }, -- "Lo-fi Chill A"
 	-- During a round: a focused, ticking game-show bed (marimba, strings, shaker) that
 	-- says "the clock is running" without being scary. 99 seconds, about one round long.
-	RoundMusic = { id = 9042796310, volume = 0.3, vary = 0 }, -- "Cutting It Close" (APM)
+	RoundMusic = { id = 9042796310, volume = 0.45, vary = 0 }, -- "Cutting It Close" (APM)
 }
 
 -- Room sounds can be heard from your own room's camera, but fade out before the

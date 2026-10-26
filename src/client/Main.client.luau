@@ -65,9 +65,10 @@ local music = Sounds.newMusic("LobbyMusic")
 music:Play()
 local roundMusic = Sounds.newMusic("RoundMusic")
 local FINAL_STRETCH = 15 -- seconds left when the round music speeds up a little
+local inRound = false
 local function updateMusic()
 	local phase = Remotes.GameState:GetAttribute("Phase")
-	local inRound = phase == "Round"
+	inRound = phase == "Round"
 		and ((player:GetAttribute("Room") or 0) > 0 or (player:GetAttribute("Spectating") or 0) > 0)
 	if inRound and not roundMusic.IsPlaying then
 		-- From the top every round, so the music builds along with the timer
@@ -80,8 +81,11 @@ local function updateMusic()
 	local roundFade = TweenService:Create(roundMusic, fade, { Volume = if inRound then Sounds.LIST.RoundMusic.volume else 0 })
 	roundFade:Play()
 	if not inRound then
-		roundFade.Completed:Once(function()
-			if roundMusic.Volume == 0 then
+		-- Stop it once it has faded out, so it starts from the top next round. A fade
+		-- that got cut short by a newer one also counts as "Completed", so check that
+		-- this fade really finished and we're still out of the round.
+		roundFade.Completed:Once(function(state)
+			if state == Enum.PlaybackState.Completed and not inRound then
 				roundMusic:Stop()
 			end
 		end)
