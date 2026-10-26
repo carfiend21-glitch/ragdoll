@@ -1,0 +1,11 @@
+# Place files built by Rojo or saved from Studio (the code in src/ is what matters)
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+sourcemap.json
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
