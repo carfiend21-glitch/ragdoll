@@ -1,4 +1,4 @@
--- After each round, plays back every room at 3x speed, side by side, so all
+-- After each round, plays back every room side by side (speeding up from 2x to 4x), so all
 -- players can watch each other. Shows everything that happened: the noob, the
 -- weapons, arrows and rockets flying, arrows sticking in, explosions, blood,
 -- torn-off limbs, damage numbers, and when players pressed PLAY / STOP / RESTART.
@@ -52,6 +52,7 @@ local recordings = {} -- [room number] = { name, frames, events }
 local order = {} -- room numbers, in the order players were given rooms
 local gui = nil
 local connection = nil
+local currentSpeed = Config.REPLAY_SPEEDS[1] -- how fast the replays are playing right now
 
 -- Adds `new` to `list`, keeping it in recorded order (`n`) and skipping anything already there
 local function merge(list, new)
@@ -274,7 +275,7 @@ end
 
 -- An orange fireball with a puff of smoke behind it
 local function boom(cell, position, radius)
-	local speed = 1 / Config.REPLAY_SPEED
+	local speed = 1 / currentSpeed
 	local fire = newPart(cell.viewport, Vector3.one, CFrame.new(position), Color3.fromRGB(255, 170, 50), Enum.Material.Neon, Enum.PartType.Ball)
 	fire.Transparency = 0.05
 	TweenService:Create(fire, TweenInfo.new(0.6 * speed), { Size = Vector3.one * radius, Transparency = 1 }):Play()
@@ -455,7 +456,7 @@ end
 
 -- A blast of flame from the flamethrower: glowing puffs rushing forward
 local function flame(cell, position, direction)
-	local seconds = 0.6 / Config.REPLAY_SPEED
+	local seconds = 0.6 / currentSpeed
 	for step = 1, 6 do
 		local puff = newPart(cell.viewport, Vector3.one * 0.6, CFrame.new(position), Color3.fromRGB(255, 140 + step * 15, 40), Enum.Material.Neon, Enum.PartType.Ball)
 		puff.Transparency = 0.15
@@ -470,12 +471,24 @@ local function flame(cell, position, direction)
 	end
 end
 
--- A laser beam that flashes and fades
+-- A laser beam (a white-hot core in a red glow) that flashes, thins out and fades,
+-- with a burst of light where it hits
 local function laser(cell, from, to)
-	local beam = newPart(cell.viewport, Vector3.new(0.25, 0.25, (to - from).Magnitude), CFrame.lookAt(from:Lerp(to, 0.5), to), Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
-	TweenService:Create(beam, TweenInfo.new(0.2), { Transparency = 1 }):Play()
-	task.delay(0.25, function()
-		beam:Destroy()
+	local seconds = 0.35 / currentSpeed
+	local length = (to - from).Magnitude
+	local cframe = CFrame.lookAt(from:Lerp(to, 0.5), to)
+	local glow = newPart(cell.viewport, Vector3.new(0.7, 0.7, length), cframe, Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
+	glow.Transparency = 0.45
+	local core = newPart(cell.viewport, Vector3.new(0.22, 0.22, length), cframe, Color3.fromRGB(255, 225, 225), Enum.Material.Neon)
+	local flash = newPart(cell.viewport, Vector3.one * 0.6, CFrame.new(to), Color3.fromRGB(255, 120, 90), Enum.Material.Neon, Enum.PartType.Ball)
+	for _, part in { glow, core } do
+		TweenService:Create(part, TweenInfo.new(seconds), { Size = Vector3.new(0, 0, length), Transparency = 1 }):Play()
+	end
+	TweenService:Create(flash, TweenInfo.new(seconds), { Size = Vector3.one * 3, Transparency = 1 }):Play()
+	task.delay(seconds + 0.05, function()
+		glow:Destroy()
+		core:Destroy()
+		flash:Destroy()
 	end)
 end
 
@@ -629,15 +642,17 @@ function Replay.play()
 	shade.Color = ColorSequence.new(Color3.fromRGB(35, 36, 48), Color3.fromRGB(12, 12, 16))
 	shade.Parent = background
 
-	label({
+	local speedLabel = label({
 		Position = UDim2.new(0, 16, 0, 62),
 		Size = UDim2.new(0.6, 0, 0, 44),
 		Font = TITLE_FONT,
 		TextColor3 = ORANGE,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = ("▶▶ REPLAYS  x%d SPEED"):format(Config.REPLAY_SPEED),
 		Parent = background,
 	})
+	local speedScale = Instance.new("UIScale")
+	speedScale.Parent = speedLabel
+	local shownSpeed = nil
 	local clock = label({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -16, 0, 62),
@@ -686,7 +701,15 @@ function Replay.play()
 
 	local startTime = os.clock()
 	connection = RunService.RenderStepped:Connect(function()
-		local t = math.min((os.clock() - startTime) * Config.REPLAY_SPEED, duration)
+		local t
+		t, currentSpeed = Config.replayProgress(os.clock() - startTime, duration)
+		if currentSpeed ~= shownSpeed then
+			-- "REPLAYS 2x >>", then 3x >>>, then 4x >>>>, with a little pop each time it speeds up
+			shownSpeed = currentSpeed
+			speedLabel.Text = ("REPLAYS  %dx %s"):format(currentSpeed, string.rep(">", currentSpeed))
+			speedScale.Scale = 1.25
+			TweenService:Create(speedScale, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		end
 		local best = 0
 		for _, cell in cells do
 			updateCell(cell, t)

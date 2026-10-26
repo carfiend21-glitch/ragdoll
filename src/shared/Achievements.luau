@@ -1,6 +1,8 @@
 -- Every achievement. The server decides when they're earned (see server/AchievementService).
 -- Weapons say which achievement unlocks them, in Weapons.luau.
 -- `reward` = cash ($) you get for earning it (Achievements.DEFAULT_REWARD if not set).
+local Config = require(script.Parent.Config)
+
 local Achievements = {}
 
 Achievements.DEFAULT_REWARD = 100
@@ -45,8 +47,9 @@ for _, achievement in Achievements.list do
 	Achievements.byId[achievement.id] = achievement
 end
 
+-- Cash ($) for earning it, boosted by Config.ACHIEVEMENT_CASH_MULTIPLIER
 function Achievements.rewardFor(achievement)
-	return achievement.reward or Achievements.DEFAULT_REWARD
+	return math.floor((achievement.reward or Achievements.DEFAULT_REWARD) * Config.ACHIEVEMENT_CASH_MULTIPLIER)
 end
 
 return Achievements

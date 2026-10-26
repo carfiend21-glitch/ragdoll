@@ -237,12 +237,12 @@ function Placement:_onInputChanged(input)
 			return
 		end
 		press.dragging = true
-		self.hud:flashHint(("Drag it into the 🗑️ trash can to sell it for $%d."):format(sellValue(press.model)))
+		self.hud:flashHint(("Drag it into the 🗑️ trash can to sell it for %s."):format(Config.formatCash(sellValue(press.model))))
 	end
 
 	-- Over the trash can: light it up, and leave the weapon where it was
 	local weapon = Weapons.byId[press.model.Name]
-	local overTrash = self.hud:isOverTrash(input.Position)
+	local overTrash = self.hud:isOverTrash(input)
 	self.hud:setTrashHover(overTrash, sellValue(press.model))
 	if overTrash then
 		return
@@ -282,7 +282,7 @@ function Placement:_onInputEnded(input)
 
 	local itemId = press.model:GetAttribute("ItemId")
 	self.hud:setTrashHover(false)
-	if self.hud:isOverTrash(input.Position) then
+	if self.hud:isOverTrash(input) then
 		Remotes.RemoveItem:FireServer(itemId)
 		press.model.Parent = nil -- hide it right away; the server removes it for real
 	elseif press.point then

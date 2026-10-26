@@ -59,19 +59,41 @@ end)
 Remotes.ReplayReset.OnClientEvent:Connect(Replay.reset)
 Remotes.ReplayChunk.OnClientEvent:Connect(Replay.addPiece)
 
--- Chill lobby music, turned down low while you're playing or watching a round
+-- Chill music in the lobby. While you're playing or watching a round it fades over
+-- to the round music, which lets you feel the clock ticking.
 local music = Sounds.newMusic("LobbyMusic")
 music:Play()
+local roundMusic = Sounds.newMusic("RoundMusic")
+local FINAL_STRETCH = 15 -- seconds left when the round music speeds up a little
 local function updateMusic()
 	local phase = Remotes.GameState:GetAttribute("Phase")
-	local volume = Sounds.LIST.LobbyMusic.volume
-	if phase == "Round" and (player:GetAttribute("Room") or 0) > 0 then
-		volume *= 0.2
-	elseif phase == "Round" and (player:GetAttribute("Spectating") or 0) > 0 then
-		volume *= 0.35
+	local inRound = phase == "Round"
+		and ((player:GetAttribute("Room") or 0) > 0 or (player:GetAttribute("Spectating") or 0) > 0)
+	if inRound and not roundMusic.IsPlaying then
+		-- From the top every round, so the music builds along with the timer
+		roundMusic.TimePosition = 0
+		roundMusic.PlaybackSpeed = 1
+		roundMusic:Play()
 	end
-	TweenService:Create(music, TweenInfo.new(1.5), { Volume = volume }):Play()
+	local fade = TweenInfo.new(1.5)
+	TweenService:Create(music, fade, { Volume = if inRound then 0 else Sounds.LIST.LobbyMusic.volume }):Play()
+	local roundFade = TweenService:Create(roundMusic, fade, { Volume = if inRound then Sounds.LIST.RoundMusic.volume else 0 })
+	roundFade:Play()
+	if not inRound then
+		roundFade.Completed:Once(function()
+			if roundMusic.Volume == 0 then
+				roundMusic:Stop()
+			end
+		end)
+	end
 end
+-- The last few seconds of a round: the music picks up the pace a little
+Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(function()
+	local timeLeft = Remotes.GameState:GetAttribute("TimeLeft") or 0
+	if Remotes.GameState:GetAttribute("Phase") == "Round" and timeLeft <= FINAL_STRETCH and roundMusic.IsPlaying then
+		TweenService:Create(roundMusic, TweenInfo.new(1), { PlaybackSpeed = 1.12 }):Play()
+	end
+end)
 player:GetAttributeChangedSignal("Room"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Spectating"):Connect(updateMusic)
 

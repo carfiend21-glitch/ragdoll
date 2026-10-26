@@ -29,9 +29,13 @@ Sounds.LIST = {
 	-- A sparkler's crackle, cut off when the Big TNT's 2.5 second fuse runs out
 	FuseHiss = { id = 9119380593, volume = 0.4, vary = 0.05, lifetime = 2.6 },
 	GunShot = { id = 9114729252, volume = 0.25, vary = 0.12 },
-	SawGrind = { id = 9113809628, volume = 0.45, vary = 0.1 },
+	-- Spinning saw: a steady whir while it spins, and sharp grating bites as it cuts
+	SawSpin = { id = 9116635675, volume = 0.25, vary = 0 }, -- "Metal Grind 1" (gentle), looped
+	SawCut1 = { id = 9118775692, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 1"
+	SawCut2 = { id = 9118775709, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 2"
 	FlameBurst = { id = 9114446277, volume = 0.55, vary = 0.08 },
-	LaserShot = { id = 9116225257, volume = 0.45, vary = 0.06 },
+	-- The classic sci-fi "pew": a sharp laser shot that drops in pitch
+	LaserShot = { id = 9116226117, volume = 0.6, vary = 0.06 }, -- "Laser Blast 1001"
 	RocketLaunch = { id = 12222065, volume = 0.5, vary = 0.08 },
 	BigBoom = { id = 9114224354, volume = 0.6, vary = 0.05, lifetime = 7 },
 	-- The noob
@@ -56,6 +60,9 @@ Sounds.LIST = {
 	Beep = { id = 9117060347, volume = 0.3, vary = 0 },
 	-- Music
 	LobbyMusic = { id = 9043887091, volume = 0.3, vary = 0 }, -- "Lo-fi Chill A"
+	-- During a round: a focused, ticking game-show bed (marimba, strings, shaker) that
+	-- says "the clock is running" without being scary. 99 seconds, about one round long.
+	RoundMusic = { id = 9042796310, volume = 0.3, vary = 0 }, -- "Cutting It Close" (APM)
 }
 
 -- Room sounds can be heard from your own room's camera, but fade out before the
@@ -90,6 +97,18 @@ function Sounds.playAt(name, position, volumeScale)
 	task.delay(info.lifetime or 4, function()
 		spot:Destroy()
 	end)
+end
+
+-- A looping sound stuck to a part (like a saw's whir), heard like Sounds.playAt.
+-- Starts stopped: set .Playing to turn it on and off.
+function Sounds.newLoop(name, part)
+	local sound = newSound(name)
+	sound.Looped = true
+	sound.RollOffMode = Enum.RollOffMode.Linear
+	sound.RollOffMinDistance = HEARING_FULL
+	sound.RollOffMaxDistance = HEARING_MAX
+	sound.Parent = part
+	return sound
 end
 
 -- Plays a sound just for you, at the same volume wherever you are (menus, music cues)

@@ -254,7 +254,7 @@ function Hud:_buildShop()
 		Font = TITLE_FONT,
 		TextColor3 = Color3.fromRGB(120, 230, 120),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "$ 0",
+		Text = "$0",
 		Parent = self.lobby,
 	})
 	self.shop = create("Frame", {
@@ -538,7 +538,7 @@ function Hud:_buildBottomBar()
 			Position = UDim2.new(0, 3, 0.73, 0),
 			Size = UDim2.new(1, -6, 0.24, 0),
 			Font = TITLE_FONT,
-			Text = "$" .. weapon.price,
+			Text = Config.formatCash(weapon.price),
 			TextColor3 = Color3.fromRGB(120, 230, 120),
 			Parent = weaponButton,
 		})
@@ -587,7 +587,7 @@ function Hud:_buildBottomBar()
 		Font = TITLE_FONT,
 		TextColor3 = Color3.fromRGB(120, 230, 120),
 		TextXAlignment = Enum.TextXAlignment.Right,
-		Text = "$ 0",
+		Text = "$0",
 		Parent = content,
 	})
 	self.progressLabel = text({
@@ -796,15 +796,25 @@ function Hud:_buildRoomOverlay()
 	})
 end
 
--- Is this input position (from a mouse or finger) over the trash can?
-function Hud:isOverTrash(position)
+-- How far outside the trash can's edge a drop still counts, so you don't have to be exact
+local TRASH_PADDING = 18
+
+-- Is this mouse or finger (an InputObject) over the trash can?
+function Hud:isOverTrash(input)
 	if not self.trash.Visible then
 		return false
 	end
-	-- Input positions don't count Roblox's top bar; this screen does
-	local y = position.Y + GuiService:GetGuiInset().Y
-	local corner, size = self.trash.AbsolutePosition, self.trash.AbsoluteSize
-	return position.X >= corner.X and position.X <= corner.X + size.X and y >= corner.Y and y <= corner.Y + size.Y
+	-- Our screen covers the whole window, including Roblox's top bar. For a mouse,
+	-- GetMouseLocation already measures from the very top of the window, so it lines
+	-- up exactly. (Adding the top bar's height to the input's position by hand was off
+	-- by a bit, so only the top part of the trash can worked.) Fingers don't have that,
+	-- so for touch we add the top bar ourselves and lean on the padding.
+	local point = if input.UserInputType == Enum.UserInputType.Touch
+		then Vector2.new(input.Position.X, input.Position.Y + GuiService:GetGuiInset().Y)
+		else UserInputService:GetMouseLocation()
+	local corner = self.trash.AbsolutePosition - Vector2.one * TRASH_PADDING
+	local far = self.trash.AbsolutePosition + self.trash.AbsoluteSize + Vector2.one * TRASH_PADDING
+	return point.X >= corner.X and point.X <= far.X and point.Y >= corner.Y and point.Y <= far.Y
 end
 
 -- Lights the trash can up red (and shows the refund) while a weapon is held over it
@@ -815,7 +825,7 @@ function Hud:setTrashHover(over, price)
 	self.trashHover = over
 	self.trash.BackgroundColor3 = if over then RED else DARK
 	self.trash.Edge.Color = if over then Color3.fromRGB(255, 220, 120) else Color3.fromRGB(90, 95, 110)
-	self.trashLabel.Text = if over then ("+$%d"):format(price) else "SELL"
+	self.trashLabel.Text = if over then "+" .. Config.formatCash(price) else "SELL"
 	self.trashLabel.TextColor3 = if over then Color3.fromRGB(150, 255, 150) else WHITE
 	TweenService:Create(self.trashScale, TweenInfo.new(0.15, Enum.EasingStyle.Back), { Scale = if over then 1.2 else 1 }):Play()
 	if over then
@@ -1084,9 +1094,9 @@ function Hud:_onWeaponButton(weapon)
 		end
 		if (player:GetAttribute("Cash") or 0) < weapon.price then
 			self:flashHint(
-				("Not enough cash! The %s costs $%d. Deal damage and keep the noob in the air to earn more."):format(
+				("Not enough cash! The %s costs %s. Deal damage and keep the noob in the air to earn more."):format(
 					weapon.name,
-					weapon.price
+					Config.formatCash(weapon.price)
 				)
 			)
 			return
@@ -1116,8 +1126,8 @@ end
 -- Shows your cash, and turns prices you can't afford red
 function Hud:_refreshCash()
 	local cash = player:GetAttribute("Cash") or 0
-	self.cashLabel.Text = "$ " .. cash
-	self.lobbyCash.Text = "$ " .. cash
+	self.cashLabel.Text = Config.formatCash(cash)
+	self.lobbyCash.Text = Config.formatCash(cash)
 	for weaponId, weaponButton in self.weaponButtons do
 		local affordable = cash >= Weapons.byId[weaponId].price
 		weaponButton.Price.TextColor3 = if affordable then Color3.fromRGB(120, 230, 120) else RED
@@ -1289,13 +1299,13 @@ function Hud:showAchievement(id, weaponIds, reward)
 	if not achievement then
 		return
 	end
-	local subtitle = ("+$%d  %s"):format(reward or 0, achievement.description)
+	local subtitle = ("+%s  %s"):format(Config.formatCash(reward or 0), achievement.description)
 	if weaponIds and #weaponIds > 0 then
 		local names = {}
 		for _, weaponId in weaponIds do
 			table.insert(names, Weapons.byId[weaponId].name)
 		end
-		subtitle = ("+$%d  🎁 New weapon unlocked: %s"):format(reward or 0, table.concat(names, ", "))
+		subtitle = ("+%s  🎁 New weapon unlocked: %s"):format(Config.formatCash(reward or 0), table.concat(names, ", "))
 	end
 	self:showToast("🏆 " .. achievement.name:upper(), subtitle)
 end

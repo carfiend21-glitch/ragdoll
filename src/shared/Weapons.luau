@@ -107,14 +107,14 @@ Weapons.list = {
 		onFloor = false,
 		size = Vector3.new(2, 2, 2),
 	},
-	-- up to ~270 damage (30 grinds), but only while the noob is touching it
+	-- up to ~270 damage (30 bites), but only while the noob is touching it
 	{
 		id = "Saw",
 		name = "Spinning Saw",
 		icon = "🪚",
 		price = 112,
 		maxPlaced = 2,
-		description = "Grinds and flings anything that touches it. 30 grinds.",
+		description = "Grabs anything that touches it and grinds it round the blade. Arms and legs saw off fastest. 30 bites.",
 		unlockedBy = "Pinball",
 		uses = 30,
 		onFloor = false,

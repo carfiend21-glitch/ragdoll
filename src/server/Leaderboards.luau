@@ -1,4 +1,4 @@
--- Global leaderboards (all servers, all time): most wins, and most damage done in
+-- Global leaderboards (all servers, all time): most wins, and most points scored in
 -- one run. Shown on two boards in the middle of the lobby, refreshed every minute.
 -- These use Roblox's "ordered" DataStores, so they only work in a published game
 -- (or in Studio with "Enable Studio Access to API Services" turned on).
@@ -87,7 +87,7 @@ function Leaderboards.start(boards)
 	task.spawn(function()
 		while true do
 			fill(winsStore, boards.winsRows, "wins")
-			fill(runStore, boards.runRows, "dmg")
+			fill(runStore, boards.runRows, "pts")
 			task.wait(REFRESH_SECONDS)
 		end
 	end)

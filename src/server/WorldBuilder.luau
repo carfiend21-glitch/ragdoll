@@ -83,7 +83,17 @@ local LOBBY = {
 }
 local LOBBY_RADIUS = 46
 
--- A big golden classic noob on a pedestal, one arm up in victory
+-- The classic noob's clothes: yellow skin, blue shirt, green pants
+local STATUE_COLORS = {
+	Torso = BrickColor.new("Bright blue").Color,
+	Head = BrickColor.new("Bright yellow").Color,
+	["Left Arm"] = BrickColor.new("Bright yellow").Color,
+	["Right Arm"] = BrickColor.new("Bright yellow").Color,
+	["Left Leg"] = BrickColor.new("Br. yellowish green").Color,
+	["Right Leg"] = BrickColor.new("Br. yellowish green").Color,
+}
+
+-- A big classic noob in its noob clothes on a pedestal, one arm up in victory
 local function buildStatue(lobby, top)
 	newShape(lobby, "Pedestal", Enum.PartType.Cylinder, Vector3.new(3, 9, 9), CFrame.new(top + Vector3.new(0, 1.5, 0)) * UPRIGHT, LOBBY.dark)
 	newShape(lobby, "PedestalGlow", Enum.PartType.Cylinder, Vector3.new(0.3, 9.6, 9.6), CFrame.new(top + Vector3.new(0, 3, 0)) * UPRIGHT, LOBBY.neonPink, Enum.Material.Neon)
@@ -100,8 +110,7 @@ local function buildStatue(lobby, top)
 		{ "Right Leg", Vector3.new(2, 4, 2), CFrame.new(1, 2, 0) },
 	}
 	for _, spec in parts do
-		local part = newPart(lobby, "Statue " .. spec[1], spec[2], base * spec[3], LOBBY.gold, Enum.Material.Metal)
-		part.Reflectance = 0.25
+		local part = newPart(lobby, "Statue " .. spec[1], spec[2], base * spec[3], STATUE_COLORS[spec[1]])
 		if spec[1] == "Head" then
 			local mesh = Instance.new("SpecialMesh")
 			mesh.MeshType = Enum.MeshType.Head
@@ -264,7 +273,7 @@ function WorldBuilder.buildLobby()
 	for _, x in { -12, 12 } do
 		newPart(lobby, "ScreenLeg", Vector3.new(1, 6, 1), CFrame.new(top + Vector3.new(x, 3, -32)), LOBBY.dark, Enum.Material.Metal)
 	end
-	local title = newSign(screen, Enum.NormalId.Back, "RAGDOLL NOOB", Color3.fromRGB(255, 200, 60))
+	local title = newSign(screen, Enum.NormalId.Back, "RAGDOLL PVP", Color3.fromRGB(255, 200, 60))
 	title.Font = Enum.Font.LuckiestGuy
 	title.Size = UDim2.fromScale(1, 0.4)
 	local status = Instance.new("TextLabel")
@@ -291,7 +300,7 @@ function WorldBuilder.buildLobby()
 
 	-- Global leaderboards on either side of the statue, facing the spawn
 	local winsRows = buildLeaderboard(lobby, top + Vector3.new(-12, 0, -2), "🏆 MOST WINS", LOBBY.gold)
-	local runRows = buildLeaderboard(lobby, top + Vector3.new(12, 0, -2), "💥 BEST RUN", LOBBY.neonPink)
+	local runRows = buildLeaderboard(lobby, top + Vector3.new(12, 0, -2), "💥 MOST POINTS", LOBBY.neonPink)
 
 	-- Invisible walls all the way round, tall enough that nobody can jump off the lobby
 	for index = 1, 32 do

@@ -135,7 +135,7 @@ function Arena:_safetyNet()
 	local cheapestUseful = Weapons.byId.Crossbow.price
 	if self.owner and self.itemCount == 0 and PlayerData.getCash(self.owner) < cheapestUseful then
 		PlayerData.addCash(self.owner, cheapestUseful - PlayerData.getCash(self.owner))
-		Remotes.Hint:FireClient(self.owner, ("Out of weapons and cash? Here's $%d to keep going!"):format(cheapestUseful))
+		Remotes.Hint:FireClient(self.owner, ("Out of weapons and cash? Here's %s to keep going!"):format(Config.formatCash(cheapestUseful)))
 	end
 end
 
@@ -170,7 +170,7 @@ function Arena:_recordRun()
 	self.runDamage = 0
 	if self.owner and damage > 0 and PlayerData.recordRun(self.owner, damage) then
 		Leaderboards.recordRun(self.owner, damage)
-		Remotes.Notify:FireClient(self.owner, "⭐ NEW BEST RUN!", Config.formatScore(damage) .. " damage in one run")
+		Remotes.Notify:FireClient(self.owner, "⭐ NEW BEST RUN!", Config.formatScore(damage) .. " points in one run")
 	end
 end
 
@@ -248,7 +248,7 @@ function Arena:placeItem(player, weaponId, position)
 	end
 	-- Each weapon you place costs cash, like in the original game
 	if not PlayerData.spendCash(player, weapon.price) then
-		Remotes.Hint:FireClient(player, ("Not enough cash! The %s costs $%d."):format(weapon.name, weapon.price))
+		Remotes.Hint:FireClient(player, ("Not enough cash! The %s costs %s."):format(weapon.name, Config.formatCash(weapon.price)))
 		return
 	end
 	local placement = Config.placementFor(self.index, weapon, position)
@@ -277,7 +277,7 @@ function Arena:takeOutItem(player, itemId)
 		local value = Items.sellValue(item)
 		self:removeItem(item)
 		PlayerData.addCash(player, value)
-		Remotes.Hint:FireClient(player, ("Sold the %s back: +$%d"):format(item.weapon.name, value))
+		Remotes.Hint:FireClient(player, ("Sold the %s back: +%s"):format(item.weapon.name, Config.formatCash(value)))
 	end
 end
 

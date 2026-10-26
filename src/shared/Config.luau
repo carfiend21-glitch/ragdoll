@@ -6,9 +6,36 @@ Config.ROUND_TIME = 90
 Config.INTERMISSION_TIME = 30 -- break in the lobby between rounds
 Config.RESULTS_TIME = 8
 
--- Replays: how fast they play back, and how many snapshots per second get recorded
-Config.REPLAY_SPEED = 3
+-- Replays speed up as they go: the first third plays at 2x, the middle third at 3x
+-- and the last third at 4x
+Config.REPLAY_SPEEDS = { 2, 3, 4 }
+-- How many snapshots per second get recorded
 Config.REPLAY_SAMPLE_RATE = 15
+
+-- For a replay `duration` seconds long (in round time): after `elapsed` real seconds
+-- of watching, how far into the round we are, and the speed it's playing at right then
+function Config.replayProgress(elapsed, duration)
+	local part = duration / #Config.REPLAY_SPEEDS
+	local t = 0
+	for _, speed in Config.REPLAY_SPEEDS do
+		local partSeconds = part / speed -- real seconds this third takes to watch
+		if elapsed <= partSeconds then
+			return t + elapsed * speed, speed
+		end
+		elapsed -= partSeconds
+		t += part
+	end
+	return duration, Config.REPLAY_SPEEDS[#Config.REPLAY_SPEEDS]
+end
+
+-- How many real seconds it takes to watch a replay `duration` seconds long
+function Config.replayWatchTime(duration)
+	local total = 0
+	for _, speed in Config.REPLAY_SPEEDS do
+		total += duration / #Config.REPLAY_SPEEDS / speed
+	end
+	return total
+end
 
 Config.ROOM_COUNT = 4
 Config.MAX_ITEMS_PER_ROOM = 8
@@ -112,9 +139,12 @@ Config.DATASTORE_NAME = "RagdollNoob_PlayerData_v1"
 -- Cash is NOT saved: everyone starts every round with STARTING_CASH, and earns more
 -- during the round. Roughly $50 per run. Weapons get used up, so that cash goes on
 -- replacing them, and the Flamethrower ($200) takes a few runs of saving up.
-Config.STARTING_CASH = 100 -- enough for 2 crossbows ($36 each) and a bounce pad ($20)
-Config.AIRTIME_CASH_PER_SECOND = 4 -- the longer the noob stays in the air, the more you earn
-Config.DAMAGE_PER_CASH = 10 -- you get $1 straight away for every this much damage
+-- All income was raised 50% (user, 2026-10-26: progress felt too slow in a 90s round).
+-- Prices stayed the same, so expensive weapons still can't just be spammed.
+Config.STARTING_CASH = 150 -- enough for 3 crossbows ($36 each) and 2 bounce pads ($20)
+Config.AIRTIME_CASH_PER_SECOND = 6 -- the longer the noob stays in the air, the more you earn
+Config.DAMAGE_PER_CASH = 20 / 3 -- you get $1 straight away for every this much damage (~6.7)
+Config.ACHIEVEMENT_CASH_MULTIPLIER = 1.5 -- achievement cash rewards are worth this much more
 
 -- The score shown to players is the real damage times this, just so the numbers feel
 -- huge and exciting. It changes nothing in the game itself: body part hit points, cash,
@@ -126,6 +156,16 @@ function Config.formatScore(score)
 	local text = tostring(math.floor(score))
 	local formatted = text:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 	return (formatted:gsub("^,", ""))
+end
+
+-- Same idea for money: every cash amount players see is the real amount times this,
+-- so a crossbow shows as $900 instead of $36. Like the score, it's only for show:
+-- prices, earnings and rewards all really work in the small numbers below.
+Config.CASH_DISPLAY_MULTIPLIER = 25
+
+-- 36 -> "$900"
+function Config.formatCash(cash)
+	return "$" .. Config.formatScore(cash * Config.CASH_DISPLAY_MULTIPLIER)
 end
 
 -- Center of room `index`'s floor. Rooms sit in a row behind the lobby.

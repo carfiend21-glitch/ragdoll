@@ -1,4 +1,4 @@
--- The game loop: lobby countdown -> 90-second round -> 3x speed replays of
+-- The game loop: lobby countdown -> 90-second round -> 2x-4x speed replays of
 -- every room -> winner and results -> repeat.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -131,9 +131,9 @@ local function playRound(arenas)
 		player:SetAttribute("Spectating", 0)
 	end
 
-	-- Everyone watches all the rooms' replays at 3x speed
+	-- Everyone watches all the rooms' replays, speeding up from 2x to 4x
 	if longest > 1 then
-		countdown("Replay", math.ceil(longest / Config.REPLAY_SPEED) + 2)
+		countdown("Replay", math.ceil(Config.replayWatchTime(longest)) + 2)
 	end
 
 	-- Most damage wins (a tie means everyone tied for first wins)

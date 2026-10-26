@@ -1,6 +1,7 @@
 -- What each weapon/trap does once it's placed in a room.
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -31,15 +32,33 @@ local ARROW_DAMAGE = 13
 local HEADSHOT_DAMAGE = 26
 local BULLET_DAMAGE = 4
 local BOUNCE_DAMAGE = 5
-local SAW_DAMAGE = 6
-local SAW_TICK = 0.15 -- seconds between grinds
+local SAW_DAMAGE = 6 -- per bite, before the body part and how hard it's pressed in
+local SAW_TICK = 0.15 -- seconds between bites of the teeth
 local SAW_SPIN = 12 -- radians per second
+local SAW_RADIUS = 2.45 -- out to the tips of the teeth
+-- How far in front of/behind the blade still counts as touching it. Generous, because
+-- we watch from the side: if it looks like it's touching the blade, it is.
+local SAW_THICKNESS = 2
+local SAW_GRIP = 9 -- how strongly the teeth drag things round with them
+local SAW_PUSH_OUT = 9 -- how fast something sunk into the blade gets pushed back out
+-- How quickly the saw cuts each body part: thin limbs go fastest, the torso slowest
+local SAW_CUT = {
+	Head = 1,
+	Torso = 0.75,
+	["Left Arm"] = 1.35,
+	["Right Arm"] = 1.35,
+	["Left Leg"] = 1.2,
+	["Right Leg"] = 1.2,
+}
 local FLAME_RANGE = 13
 local FLAME_ANGLE = math.rad(25)
 local FLAME_DAMAGE = 3
 local FLAME_BURST = 0.6 -- seconds each blast of flame lasts
 local BURN_TIME = 3
 local LASER_DAMAGE = 25
+local LASER_CHARGE = 0.5 -- seconds the lens glows brighter before each shot
+local LASER_FADE = 0.35 -- seconds the beam takes to thin out and vanish
+local LENS_COLOR = Color3.fromRGB(255, 40, 40)
 local PAD_COLOR = Color3.fromRGB(80, 220, 90)
 local FUSE_COLOR = Color3.fromRGB(255, 60, 60)
 local FIRST_SHOT_DELAY = 0.4 -- seconds after PLAY before a weapon's first shot
@@ -95,6 +114,11 @@ function Items.resetForNextRun(item)
 	end
 	if item.body and item.bodyColor then
 		item.body.Color = item.bodyColor
+	end
+	if item.lens then
+		item.lens.Size = item.lensSize
+		item.lens.Color = LENS_COLOR
+		item.lensLight.Brightness = 0
 	end
 end
 
@@ -161,6 +185,20 @@ function Items.create(weapon, id, placement, parent)
 		flames = model:FindFirstChild("Flames", true),
 		spinParts = spinParts,
 	}
+	-- The saw whirs while it spins
+	if weapon.id == "Saw" then
+		item.spinSound = Sounds.newLoop("SawSpin", model.PrimaryPart)
+	end
+	-- The laser cannon's lens glows up before each shot
+	local lens = weapon.id == "Laser" and model:FindFirstChild("Lens")
+	if lens then
+		item.lens = lens
+		item.lensSize = lens.Size
+		item.lensLight = Instance.new("PointLight")
+		item.lensLight.Color = Color3.fromRGB(255, 60, 60)
+		item.lensLight.Brightness = 0
+		item.lensLight.Parent = lens
+	end
 	setUses(item, weapon.uses)
 	return item
 end
@@ -416,6 +454,76 @@ local function burnCone(arena, item)
 	end
 end
 
+-- A glowing part for laser effects that can't be touched or clicked
+local function laserPart(parent, size, cframe, color, shape)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Material = Enum.Material.Neon
+	part.Shape = shape or Enum.PartType.Block
+	part.Color = color
+	part.Size = size
+	part.CFrame = cframe
+	part.Parent = parent
+	return part
+end
+
+-- The shot: a white-hot core inside a thick red glow that flashes on and then
+-- thins out to nothing, a flash at the muzzle, and (if it hit) a burst of light
+-- and sparks flying off the noob
+local function laserEffects(arena, from, to, hit)
+	local length = (to - from).Magnitude
+	local cframe = CFrame.lookAt(from:Lerp(to, 0.5), to)
+	local fade = TweenInfo.new(LASER_FADE, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	local glow = laserPart(arena.room, Vector3.new(0.8, 0.8, length), cframe, Color3.fromRGB(255, 30, 30))
+	glow.Transparency = 0.45
+	local core = laserPart(arena.room, Vector3.new(0.25, 0.25, length), cframe, Color3.fromRGB(255, 225, 225))
+	for _, part in { glow, core } do
+		TweenService:Create(part, fade, { Size = Vector3.new(0, 0, length), Transparency = 1 }):Play()
+		Debris:AddItem(part, LASER_FADE + 0.05)
+	end
+
+	local flashes = { { from, 1.6 } }
+	if hit then
+		table.insert(flashes, { to, 3.5 })
+	end
+	for _, spot in flashes do
+		local flash = laserPart(arena.room, Vector3.one * 0.5, CFrame.new(spot[1]), Color3.fromRGB(255, 130, 100), Enum.PartType.Ball)
+		TweenService:Create(flash, TweenInfo.new(LASER_FADE), { Size = Vector3.one * spot[2], Transparency = 1 }):Play()
+		Debris:AddItem(flash, LASER_FADE + 0.05)
+	end
+
+	if hit then
+		local back = (from - to).Unit
+		for _ = 1, 8 do
+			-- Mostly bouncing back toward the cannon, spread out, and kept flat to the camera
+			local spray = (back + Vector3.new(math.random() - 0.5, math.random() - 0.3, 0) * 1.6) * Vector3.new(1, 1, 0.2)
+			local spark = laserPart(arena.room, Vector3.new(0.12, 0.12, 0.5), CFrame.lookAt(to, to + spray), Color3.fromRGB(255, 200, 120))
+			local seconds = 0.25 + math.random() * 0.2
+			TweenService:Create(spark, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				CFrame = CFrame.lookAt(to + spray.Unit * (2 + math.random() * 2), to + spray * 2),
+				Size = Vector3.new(0.05, 0.05, 0.2),
+				Transparency = 1,
+			}):Play()
+			Debris:AddItem(spark, seconds + 0.05)
+		end
+	end
+end
+
+-- Before each shot the lens swells up and glows brighter and brighter, so you can
+-- see the shot coming
+local function chargeLaser(item)
+	local progress = if item.timer then math.clamp(1 - item.timer / LASER_CHARGE, 0, 1) else 0
+	local grow = 1 + progress * 1.3
+	item.lens.Size = Vector3.new(item.lensSize.X, item.lensSize.Y * grow, item.lensSize.Z * grow)
+	item.lens.Color = LENS_COLOR:Lerp(Color3.fromRGB(255, 230, 230), progress)
+	item.lensLight.Brightness = progress * 8
+	item.lensLight.Range = 2 + progress * 8
+end
+
 local function fireLaser(arena, item)
 	local muzzle = item.model:GetPivot() * CFrame.new(0, 0, -1.9)
 	local params = RaycastParams.new()
@@ -424,18 +532,7 @@ local function fireLaser(arena, item)
 	local result = Workspace:Raycast(muzzle.Position, muzzle.LookVector * 100, params)
 	local target = if result then result.Position else muzzle.Position + muzzle.LookVector * 60
 
-	-- The beam: a glowing red line that fades quickly
-	local beam = Instance.new("Part")
-	beam.Anchored = true
-	beam.CanCollide = false
-	beam.CanTouch = false
-	beam.CanQuery = false
-	beam.Material = Enum.Material.Neon
-	beam.Color = Color3.fromRGB(255, 40, 40)
-	beam.Size = Vector3.new(0.25, 0.25, (target - muzzle.Position).Magnitude)
-	beam.CFrame = CFrame.lookAt(muzzle.Position:Lerp(target, 0.5), target)
-	beam.Parent = arena.room
-	Debris:AddItem(beam, 0.25)
+	laserEffects(arena, muzzle.Position, target, result ~= nil)
 	arena.recorder:event("laser", { position = muzzle.Position, target = target - arena.origin })
 	Sounds.playAt("LaserShot", item.position)
 
@@ -497,7 +594,44 @@ local function bounce(arena, item, bodyPart)
 	useUp(arena, item)
 end
 
--- Spins the blade, and grinds (and flings) any body part touching it
+-- Where a body part touches the spinning blade, if it does.
+-- The blade is a flat disc facing the camera, so only its round edge matters: we find
+-- the point of the body part closest to the blade's middle and see if it's inside the
+-- edge. Returns that point, how deep it's in, and which way is "out" from the middle
+-- and "along" the edge (the way the teeth are moving there), or nil if not touching.
+local function sawContact(center, part)
+	-- The closest point of the (box-shaped) body part to the middle of the blade
+	local inPart = part.CFrame:PointToObjectSpace(center.Position)
+	local half = part.Size / 2
+	local closest = part.CFrame:PointToWorldSpace(Vector3.new(
+		math.clamp(inPart.X, -half.X, half.X),
+		math.clamp(inPart.Y, -half.Y, half.Y),
+		math.clamp(inPart.Z, -half.Z, half.Z)
+	))
+	local relative = center:PointToObjectSpace(closest)
+	if math.abs(relative.Z) > SAW_THICKNESS then
+		return nil -- in front of or behind the blade, not touching its edge
+	end
+	local flat = Vector3.new(relative.X, relative.Y, 0)
+	local distance = flat.Magnitude
+	if distance >= SAW_RADIUS then
+		return nil
+	end
+	-- Deep inside (or right on the middle): push it out the way the part's middle is
+	if distance < 0.2 then
+		flat = center:PointToObjectSpace(part.Position) * Vector3.new(1, 1, 0)
+		flat = if flat.Magnitude > 0.01 then flat else Vector3.yAxis
+	end
+	local out = flat.Unit
+	-- The blade turns clockwise (as seen from the camera), so this is where the teeth go
+	local along = Vector3.new(out.Y, -out.X, 0)
+	return closest, SAW_RADIUS - distance, center:VectorToWorldSpace(out), center:VectorToWorldSpace(along)
+end
+
+-- Spins the blade. Anything touching it gets grabbed by the teeth and dragged round
+-- the edge (like real friction), can't sink into the solid blade, and judders as the
+-- teeth bite. Body parts still on the noob get cut while they're in contact: thin
+-- arms and legs saw through faster than the head, and the tough torso slowest.
 local function stepSaw(arena, item, dt)
 	local center = item.model:GetPivot()
 	local turn = center * CFrame.Angles(0, 0, -SAW_SPIN * dt) * center:Inverse()
@@ -506,34 +640,50 @@ local function stepSaw(arena, item, dt)
 	end
 
 	item.grindTimer = (item.grindTimer or 0) - dt
-	if item.grindTimer > 0 then
-		return
+	local biteNow = item.grindTimer <= 0
+	if biteNow then
+		item.grindTimer = SAW_TICK
 	end
-	item.grindTimer = SAW_TICK
-	local params = OverlapParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = arena.noob.parts
+	local rimSpeed = SAW_SPIN * SAW_RADIUS
+	local grip = 1 - math.exp(-SAW_GRIP * dt) -- how much of the teeth's speed it picks up this frame
+	local noob = arena.noob
 	local hits = {}
-	for _, part in Workspace:GetPartsInPart(item.model.PrimaryPart, params) do
-		if arena.noob.attached[part] then
-			-- Thrown along the edge of the blade, the way it spins, and a bit outwards
-			local outward = part.Position - center.Position
-			outward = Vector3.new(outward.X, outward.Y, 0)
-			outward = if outward.Magnitude > 0.1 then outward.Unit else Vector3.yAxis
-			local along = Vector3.new(outward.Y, -outward.X, 0)
-			part.AssemblyLinearVelocity = along * 28 + outward * 10
-			table.insert(hits, { part = part, amount = SAW_DAMAGE })
+	for _, part in noob.parts do
+		local point, depth, out, along = sawContact(center, part)
+		if point then
+			local velocity = part.AssemblyLinearVelocity
+			-- The blade is solid: no sinking into it, and anything inside gets pushed back out
+			local outSpeed = velocity:Dot(out)
+			local wanted = depth * SAW_PUSH_OUT
+			if outSpeed < wanted then
+				velocity += out * (wanted - outSpeed)
+			end
+			-- The teeth drag it round the edge
+			velocity += along * (rimSpeed - velocity:Dot(along)) * grip
+			if biteNow then
+				-- Each bite of the teeth knocks it out a little, so it judders against the blade
+				velocity += out * (3 + math.random() * 5)
+				part.AssemblyAngularVelocity += center.LookVector * (math.random() - 0.5) * 12
+				if noob.attached[part] and not noob.dead then
+					local cut = SAW_CUT[part.Name] or 1
+					local bite = 0.7 + 0.6 * math.min(depth / 0.6, 1) -- pressed in harder = deeper cut
+					table.insert(hits, { part = part, amount = SAW_DAMAGE * cut * bite, position = point })
+				end
+			end
+			part.AssemblyLinearVelocity = velocity
+			arena.ignoreImpactUntil = os.clock() + 0.1 -- being dragged round isn't a crash
 		end
 	end
+
 	if #hits > 0 then
-		arena.ignoreImpactUntil = os.clock() + 0.1
-		-- Only a fresh touch builds the combo, not every grind
+		-- Only a fresh touch builds the combo, not every bite
 		local now = os.clock()
 		local fresh = now - (item.lastGrind or 0) > 0.6
 		item.lastGrind = now
-		if now - (item.lastGrindSound or 0) > 0.5 then
+		if now - (item.lastGrindSound or 0) > 0.3 then
 			item.lastGrindSound = now
-			Sounds.playAt("SawGrind", item.position)
+			item.cutSound = if item.cutSound == "SawCut1" then "SawCut2" else "SawCut1"
+			Sounds.playAt(item.cutSound, hits[1].position)
 		end
 		arena:hit("Saw", if fresh then item else nil, hits)
 		useUp(arena, item)
@@ -563,6 +713,9 @@ function Items.step(arena, item, dt)
 			item.model:PivotTo(CFrame.lookAt(item.position, target))
 		end
 	end
+	if item.spinSound and item.spinSound.Playing ~= arena.running then
+		item.spinSound.Playing = arena.running
+	end
 	if not arena.running then
 		if item.flames then
 			item.flames.Enabled = false
@@ -575,6 +728,9 @@ function Items.step(arena, item, dt)
 		if item.timer <= 0 then
 			item.timer = weapon.fireInterval
 			FIRE[weapon.id](arena, item)
+		end
+		if item.lens then
+			chargeLaser(item)
 		end
 	elseif weapon.fuse then
 		if not item.fuseTime then
