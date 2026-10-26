@@ -3,7 +3,6 @@
 -- health and the weapons, and a panel on the right with current tasks and the
 -- achievements list. In the lobby there's a status line and an achievements button.
 local Debris = game:GetService("Debris")
-local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -32,6 +31,8 @@ local ORANGE = Color3.fromRGB(240, 140, 30)
 local ORANGE_DARK = Color3.fromRGB(150, 85, 25)
 local LOCKED = Color3.fromRGB(95, 80, 70)
 local YELLOW = Color3.fromRGB(255, 220, 60)
+-- How far outside the trash can's edge a drop still counts, so you don't have to be exact
+local TRASH_PADDING = 18
 local RED = Color3.fromRGB(230, 50, 40)
 local TASK_COUNT = 3
 
@@ -794,27 +795,33 @@ function Hud:_buildRoomOverlay()
 		Text = "SELL",
 		Parent = self.trash,
 	})
+	-- An invisible area a little bigger than the trash can: dropping anywhere on it
+	-- sells, so you don't have to aim exactly
+	create("Frame", {
+		Name = "DropArea",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, TRASH_PADDING * 2, 1, TRASH_PADDING * 2),
+		BackgroundTransparency = 1,
+		Parent = self.trash,
+	})
 end
-
--- How far outside the trash can's edge a drop still counts, so you don't have to be exact
-local TRASH_PADDING = 18
 
 -- Is this mouse or finger (an InputObject) over the trash can?
 function Hud:isOverTrash(input)
 	if not self.trash.Visible then
 		return false
 	end
-	-- Our screen covers the whole window, including Roblox's top bar. For a mouse,
-	-- GetMouseLocation already measures from the very top of the window, so it lines
-	-- up exactly. (Adding the top bar's height to the input's position by hand was off
-	-- by a bit, so only the top part of the trash can worked.) Fingers don't have that,
-	-- so for touch we add the top bar ourselves and lean on the padding.
-	local point = if input.UserInputType == Enum.UserInputType.Touch
-		then Vector2.new(input.Position.X, input.Position.Y + GuiService:GetGuiInset().Y)
-		else UserInputService:GetMouseLocation()
-	local corner = self.trash.AbsolutePosition - Vector2.one * TRASH_PADDING
-	local far = self.trash.AbsolutePosition + self.trash.AbsoluteSize + Vector2.one * TRASH_PADDING
-	return point.X >= corner.X and point.X <= far.X and point.Y >= corner.Y and point.Y <= far.Y
+	-- Ask Roblox which on-screen boxes are under the pointer, the same check it uses for
+	-- clicking buttons. Working out the position ourselves kept going wrong (Roblox's top
+	-- bar shifts things), so only part of the trash can worked.
+	local position = input.Position
+	for _, object in self.gui.Parent:GetGuiObjectsAtPosition(position.X, position.Y) do
+		if object == self.trash or object:IsDescendantOf(self.trash) then
+			return true
+		end
+	end
+	return false
 end
 
 -- Lights the trash can up red (and shows the refund) while a weapon is held over it
