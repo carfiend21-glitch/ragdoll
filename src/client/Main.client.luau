@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Sounds = require(Shared.Sounds)
 
@@ -60,60 +61,59 @@ Remotes.ReplayReset.OnClientEvent:Connect(Replay.reset)
 Remotes.ReplayChunk.OnClientEvent:Connect(Replay.addPiece)
 
 -- Chill music in the lobby. While you're playing or watching a round it fades over
--- to dark, ticking-clock suspense music, and in the last few seconds to a faster
--- "double time" version of it.
-local music = Sounds.newMusic("LobbyMusic")
-music:Play()
-local roundTracks = {
-	{ sound = Sounds.newMusic("RoundMusic"), volume = Sounds.LIST.RoundMusic.volume },
-	{ sound = Sounds.newMusic("RoundMusicFinal"), volume = Sounds.LIST.RoundMusicFinal.volume },
-}
-local FINAL_STRETCH = 15 -- seconds left when the round music switches to double time
+-- to dark music that builds toward the end of the round, and for the last few
+-- seconds fast clock ticks join in on top.
+local FINAL_STRETCH = 15 -- seconds left when the clock ticks join in
 local FADE = TweenInfo.new(1.5)
-local wantedTrack = nil -- the round track that should be playing (nil = lobby music)
 
--- Fades over to `track` (or back to the lobby music if nil). Tracks start from the
--- top each time, and stop once they've faded out.
-local function playRoundTrack(track)
-	if track == wantedTrack then
+local function newLayer(name)
+	return { sound = Sounds.newMusic(name), volume = Sounds.LIST[name].volume, on = false }
+end
+local lobbyLayer = newLayer("LobbyMusic")
+local roundLayer = newLayer("RoundMusic")
+local ticksLayer = newLayer("FinalTicks")
+
+-- Fades a layer in (playing from `startAt` seconds) or out (then stops it)
+local function setLayer(layer, on, startAt)
+	if layer.on == on then
 		return
 	end
-	wantedTrack = track
-	TweenService:Create(music, FADE, { Volume = if track then 0 else Sounds.LIST.LobbyMusic.volume }):Play()
-	for _, other in roundTracks do
-		local sound = other.sound
-		if other == track then
-			sound.TimePosition = 0
-			sound:Play()
-			TweenService:Create(sound, FADE, { Volume = other.volume }):Play()
-		else
-			local fadeOut = TweenService:Create(sound, FADE, { Volume = 0 })
-			fadeOut:Play()
-			-- A fade that got cut short by a newer one also counts as "Completed",
-			-- so only stop it if this fade really finished and it's still not wanted
-			fadeOut.Completed:Once(function(state)
-				if state == Enum.PlaybackState.Completed and wantedTrack ~= other then
-					sound:Stop()
-				end
-			end)
-		end
+	layer.on = on
+	local sound = layer.sound
+	if on then
+		sound.TimePosition = startAt or 0
+		sound:Play()
+	end
+	local fade = TweenService:Create(sound, FADE, { Volume = if on then layer.volume else 0 })
+	fade:Play()
+	if not on then
+		-- A fade that got cut short by a newer one also counts as "Completed",
+		-- so only stop it if this fade really finished and it's still not wanted
+		fade.Completed:Once(function(state)
+			if state == Enum.PlaybackState.Completed and not layer.on then
+				sound:Stop()
+			end
+		end)
 	end
 end
 
 local function updateMusic()
 	local inRound = Remotes.GameState:GetAttribute("Phase") == "Round"
 		and ((player:GetAttribute("Room") or 0) > 0 or (player:GetAttribute("Spectating") or 0) > 0)
-	if not inRound then
-		playRoundTrack(nil)
-	elseif wantedTrack == nil then
-		-- Always start on the normal track: right as a round starts, the time left can
-		-- still be the lobby countdown's last second for a moment
-		playRoundTrack(roundTracks[1])
-	elseif (Remotes.GameState:GetAttribute("TimeLeft") or 0) <= FINAL_STRETCH then
-		playRoundTrack(roundTracks[2])
+	local timeLeft = Remotes.GameState:GetAttribute("TimeLeft") or 0
+	setLayer(lobbyLayer, not inRound)
+	if inRound and not roundLayer.on then
+		-- Right as a round starts, the time left can still be the lobby countdown's
+		-- last second for a moment, so treat that as a full round
+		local left = if timeLeft > 1 then timeLeft else Config.ROUND_TIME
+		-- Start partway in, so the music's big finish lands as the round ends
+		local length = roundLayer.sound.TimeLength
+		setLayer(roundLayer, true, math.max(0, length - left))
+	elseif not inRound then
+		setLayer(roundLayer, false)
 	end
+	setLayer(ticksLayer, inRound and roundLayer.on and timeLeft > 0 and timeLeft <= FINAL_STRETCH)
 end
--- The last few seconds of a round switch to the double time music
 Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Room"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Spectating"):Connect(updateMusic)
