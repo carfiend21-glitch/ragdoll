@@ -5,7 +5,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local Sounds = require(Shared.Sounds)
 
@@ -61,7 +60,7 @@ Remotes.ReplayReset.OnClientEvent:Connect(Replay.reset)
 Remotes.ReplayChunk.OnClientEvent:Connect(Replay.addPiece)
 
 -- Chill music in the lobby. While you're playing or watching a round it fades over
--- to dark music that builds toward the end of the round, and for the last few
+-- to dark crime-thriller music (from the top each round), and for the last few
 -- seconds fast clock ticks join in on top.
 local FINAL_STRETCH = 15 -- seconds left when the clock ticks join in
 local FADE = TweenInfo.new(1.5)
@@ -73,15 +72,15 @@ local lobbyLayer = newLayer("LobbyMusic")
 local roundLayer = newLayer("RoundMusic")
 local ticksLayer = newLayer("FinalTicks")
 
--- Fades a layer in (playing from `startAt` seconds) or out (then stops it)
-local function setLayer(layer, on, startAt)
+-- Fades a layer in (playing from the top) or out (then stops it)
+local function setLayer(layer, on)
 	if layer.on == on then
 		return
 	end
 	layer.on = on
 	local sound = layer.sound
 	if on then
-		sound.TimePosition = startAt or 0
+		sound.TimePosition = 0
 		sound:Play()
 	end
 	local fade = TweenService:Create(sound, FADE, { Volume = if on then layer.volume else 0 })
@@ -101,18 +100,12 @@ local function updateMusic()
 	local inRound = Remotes.GameState:GetAttribute("Phase") == "Round"
 		and ((player:GetAttribute("Room") or 0) > 0 or (player:GetAttribute("Spectating") or 0) > 0)
 	local timeLeft = Remotes.GameState:GetAttribute("TimeLeft") or 0
+	-- Right as a round starts, the time left can still be the lobby countdown's last
+	-- second for a moment, so the ticks only join once the round music was already on
+	local wasInRound = roundLayer.on
 	setLayer(lobbyLayer, not inRound)
-	if inRound and not roundLayer.on then
-		-- Right as a round starts, the time left can still be the lobby countdown's
-		-- last second for a moment, so treat that as a full round
-		local left = if timeLeft > 1 then timeLeft else Config.ROUND_TIME
-		-- Start partway in, so the music's big finish lands as the round ends
-		local length = roundLayer.sound.TimeLength
-		setLayer(roundLayer, true, math.max(0, length - left))
-	elseif not inRound then
-		setLayer(roundLayer, false)
-	end
-	setLayer(ticksLayer, inRound and roundLayer.on and timeLeft > 0 and timeLeft <= FINAL_STRETCH)
+	setLayer(roundLayer, inRound)
+	setLayer(ticksLayer, inRound and wasInRound and timeLeft > 0 and timeLeft <= FINAL_STRETCH)
 end
 Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Room"):Connect(updateMusic)

@@ -60,11 +60,11 @@ Sounds.LIST = {
 	Beep = { id = 9117060347, volume = 0.3, vary = 0 },
 	-- Music
 	LobbyMusic = { id = 9043887091, volume = 0.3, vary = 0 }, -- "Lo-fi Chill A"
-	-- During a round: dark, brooding music that ticks and pulses toward a building finish,
-	-- lined up so the finish lands as the round ends. ("Deadly Heist Clock Ticking" is
-	-- only the clock layer of a song, with no music, so it is just an extra layer of
-	-- fast ticks over the last 15 seconds.)
-	RoundMusic = { id = 1837463509, volume = 0.5, vary = 0 }, -- "Time Almost Up" (APM, 127 s)
+	-- During a round: a dark crime-drama tension cue (icy piano, pulsing cello) for a noob
+	-- getting torn apart against the clock. No synths or sci-fi. ("Deadly Heist Clock
+	-- Ticking" is only the clock layer of a song, so it is just fast ticks on top for the
+	-- last 15 seconds.)
+	RoundMusic = { id = 9043558464, volume = 0.5, vary = 0 }, -- "Voyager Suspense (d)" (APM/KPM, 147 s)
 	FinalTicks = { id = 1835342628, volume = 0.3, vary = 0 }, -- "Deadly Heist Clock Ticking Double Time" (APM)
 }
 
