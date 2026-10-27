@@ -9,6 +9,8 @@ $studio = Get-ChildItem "$env:LOCALAPPDATA\Roblox\Versions" -Directory |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $studio) { throw "Couldn't find Roblox Studio (it has the noob's head and face)." }
 $content = "$($studio.FullName)\content"
-Add-Type -Path "$PSScriptRoot\GameArt.cs", "$PSScriptRoot\GameArtScenes.cs" -ReferencedAssemblies System.Drawing
+Add-Type -Path "$PSScriptRoot\GameArt.cs", "$PSScriptRoot\GameArtScenes.cs", "$PSScriptRoot\GameArtWeapons.cs" -ReferencedAssemblies System.Drawing
 [GameArtScenes]::MakeAll("$content\avatar\heads\head.mesh", "$content\textures\face.png", $root)
+# The 8 Noob Buck exclusive weapons (images/exclusive-weapons)
+[GameArtScenes]::MakeExclusives($root)
 Write-Output "Done! Look in $root\images"

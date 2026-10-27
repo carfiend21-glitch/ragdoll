@@ -53,6 +53,7 @@ public static class GameArt
         public Color Col;
         public int Id;
         public bool Face; // the noob's head: gets the smiley face on its front
+        public bool Neon; // glows: no shading
         public V3 LA, LB, LC; // head-local positions, for placing the face
     }
 
@@ -63,11 +64,12 @@ public static class GameArt
     {
         internal List<Tri> Tris = new List<Tri>();
         int nextId = 1;
+        public bool Neon; // parts added while this is on glow (like Roblox's Neon material)
         public string MeshPath, FacePath;
 
         void Add(V3 a, V3 b, V3 c, V3 na, V3 nb, V3 nc, Color col, int id)
         {
-            Tris.Add(new Tri { A = a, B = b, C = c, NA = na, NB = nb, NC = nc, Col = col, Id = id });
+            Tris.Add(new Tri { A = a, B = b, C = c, NA = na, NB = nb, NC = nc, Col = col, Id = id, Neon = Neon });
         }
 
         public void Box(V3 center, M3 rot, V3 size, Color col)
@@ -272,7 +274,7 @@ public static class GameArt
                     if (z >= depth[i]) continue;
                     V3 n = (t.NA * w0 + t.NB * w1 + t.NC * w2).Unit();
                     if (n.Dot(fwd) > 0 && !t.Face) n = n * -1;
-                    double shade = 0.62 + 0.5 * Math.Max(0, n.Dot(light));
+                    double shade = t.Neon ? 1.1 : 0.62 + 0.5 * Math.Max(0, n.Dot(light));
                     Color baseCol = t.Col;
                     if (t.Face && face != null)
                     {

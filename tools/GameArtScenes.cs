@@ -226,6 +226,56 @@ public static class GameArtScenes
         }
     }
 
+    // The 8 Noob Buck exclusive weapons: the weapon on glowing rays in its own color, with
+    // its name underneath. `front` = seen from the front like the room camera sees it
+    // (things that don't aim); otherwise from the side, like a gun.
+    static readonly object[][] EXCLUSIVES = {
+        new object[] { "GravityFlipper", "GRAVITY FLIPPER", Color.FromArgb(60, 20, 110), Color.FromArgb(110, 50, 190), true, 8.0 },
+        new object[] { "FreezeRay", "FREEZE RAY", Color.FromArgb(20, 70, 120), Color.FromArgb(50, 140, 200), false, 7.8 },
+        new object[] { "AcidBlaster", "ACID BLASTER", Color.FromArgb(25, 80, 20), Color.FromArgb(70, 160, 40), false, 7.8 },
+        new object[] { "StormCloud", "STORM CLOUD", Color.FromArgb(25, 30, 60), Color.FromArgb(60, 70, 120), true, 15.0 },
+        new object[] { "BanHammer", "BAN HAMMER", Color.FromArgb(110, 15, 15), Color.FromArgb(190, 40, 40), true, 15.0 },
+        new object[] { "Railgun", "RAILGUN", Color.FromArgb(15, 40, 110), Color.FromArgb(40, 100, 210), false, 8.0 },
+        new object[] { "Minigun", "MINIGUN", Color.FromArgb(50, 50, 55), Color.FromArgb(95, 95, 105), false, 8.2 },
+        new object[] { "MissileSwarm", "MISSILE SWARM", Color.FromArgb(55, 65, 25), Color.FromArgb(105, 125, 50), false, 7.0 },
+    };
+
+    public static void MakeExclusives(string root)
+    {
+        string dir = Path.Combine(root, "images", "exclusive-weapons");
+        foreach (var spec in EXCLUSIVES)
+        {
+            string id = (string)spec[0], name = (string)spec[1];
+            Color dark = (Color)spec[2], light = (Color)spec[3];
+            bool front = (bool)spec[4];
+            double distance = (double)spec[5];
+            using (var bmp = new Bitmap(512, 512))
+            using (var g = GameArt.Prepare(bmp))
+            {
+                GameArt.Rays(g, new RectangleF(0, 0, 512, 512), 256, 230, dark, light, 20);
+                GameArt.Glow(g, 256, 230, 200, light, false);
+                var model = ExclusiveModels.Build(id);
+                var dirV = front ? new GameArt.V3(0.35, 0.25, 1) : new GameArt.V3(1, 0.45, -0.55);
+                var from = dirV.Unit() * distance;
+                using (var img = GameArt.Render(model, 600, from, new GameArt.V3(0, 0, 0), 30, 3))
+                {
+                    if (id == "BanHammer")
+                    {
+                        // "BAN" on the front of the hammer head, like in the game
+                        using (var g2 = GameArt.Prepare(img))
+                        {
+                            PointF c = GameArt.Project(new GameArt.V3(0, -1.55, 0.9));
+                            GameArt.Title(g2, "BAN", "Arial Black", 70, new RectangleF(c.X - 150, c.Y - 45, 300, 90), Color.White, Color.FromArgb(230, 230, 230), Color.FromArgb(90, 10, 10), 6, StringAlignment.Center, 0);
+                        }
+                    }
+                    GameArt.Place(g, img, 256, 215, 430, 0);
+                }
+                GameArt.Title(g, name, "Arial Black", name.Length > 12 ? 44 : 52, new RectangleF(10, 400, 492, 90), Color.White, Color.FromArgb(220, 225, 255), Ink, 10, StringAlignment.Center, 0);
+                GameArt.Save(bmp, Path.Combine(dir, id + ".png"));
+            }
+        }
+    }
+
     static void VoidPass(string path)
     {
         using (var bmp = new Bitmap(512, 512))

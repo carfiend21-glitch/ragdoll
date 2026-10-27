@@ -10,14 +10,15 @@ NoobBucks.VOTE_REWARD = 1
 -- Robux packs. `productId` = the Developer Product that sells it. 0 means "not set up
 -- yet": create a Developer Product for each pack on the Creator Dashboard
 -- (your game > Monetization > Developer Products), then paste its ID here.
--- `robux` is only the suggested price shown in the menu: the real price is whatever
--- you set on the Dashboard, so keep the two the same. Bigger packs are a better deal.
+-- `robux` is the price shown in the menu: the real price is whatever you set on the
+-- Dashboard, so keep the two the same. `best = true` shows a "BEST DEAL" tag on a pack
+-- (only use it on the pack that really is the cheapest per Noob Buck).
 NoobBucks.PACKS = {
 	{ bucks = 5, robux = 25, productId = 3722775134 },
-	{ bucks = 10, robux = 45, productId = 3722775340 },
-	{ bucks = 25, robux = 99, productId = 3722775758 },
-	{ bucks = 50, robux = 179, productId = 3722775975 },
-	{ bucks = 100, robux = 329, productId = 3722776111, best = true },
+	{ bucks = 10, robux = 50, productId = 3722775340 },
+	{ bucks = 25, robux = 150, productId = 3722775758 },
+	{ bucks = 50, robux = 350, productId = 3722775975 },
+	{ bucks = 100, robux = 700, productId = 3722776111 },
 }
 
 -- 2x Noob Bucks: winning a round and being voted best sequence give double Noob Bucks.
@@ -27,7 +28,7 @@ NoobBucks.PACKS = {
 -- `gamePassId` / `productId` = 0 means "not set up yet" (paste the IDs from the Creator
 -- Dashboard). `robux` is only the suggested price shown in the shop.
 NoobBucks.DOUBLE_PASS = { gamePassId = 2056804518, robux = 499 }
-NoobBucks.BOOST = { productId = 3722789302, robux = 25, seconds = 60 * 60 }
+NoobBucks.BOOST = { productId = 3722789302, robux = 99, seconds = 60 * 60 }
 
 -- How many times over Noob Buck rewards count: 2 with the pass or a boost running, else 1.
 -- `boostUntil` = when the boost runs out (os.time()), `now` = os.time()

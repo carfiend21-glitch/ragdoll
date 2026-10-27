@@ -16,14 +16,14 @@ Noob Bucks, so the pass feels like the "real" deal.
 
 | Pass | Suggested price | Notes |
 | --- | --- | --- |
-| Gravity Flipper | R$ 99 | Exclusive weapon |
-| Freeze Ray | R$ 99 | Exclusive weapon |
-| Acid Blaster | R$ 99 | Exclusive weapon |
-| Storm Cloud | R$ 149 | Exclusive weapon |
-| Ban Hammer | R$ 149 | Exclusive weapon |
-| Railgun | R$ 199 | Exclusive weapon |
-| Minigun | R$ 249 | Exclusive weapon |
-| Missile Swarm | R$ 249 | Exclusive weapon |
+| Gravity Flipper | (no pass) | Noob Bucks only |
+| Freeze Ray | (no pass) | Noob Bucks only |
+| Acid Blaster | (no pass) | Noob Bucks only |
+| Storm Cloud | (no pass) | Noob Bucks only |
+| Ban Hammer | (no pass) | Noob Bucks only |
+| Railgun | (no pass) | Noob Bucks only |
+| Minigun | (no pass) | Noob Bucks only |
+| Missile Swarm | (no pass) | Noob Bucks only |
 | Black Hole | R$ 299 | **Robux only** (see below) |
 | Mini Nuke | R$ 399 | **Robux only** (see below), the "flex" one |
 | Rocket Launcher | R$ 99 | Already in the game (Robux only) |
@@ -37,10 +37,20 @@ Doubles the Noob Bucks you get for **winning a round** and for being **voted bes
 | What | Suggested price | Type | Where the ID goes |
 | --- | --- | --- | --- |
 | 2x Noob Bucks forever | R$ 499 (set) | Game Pass | `NoobBucks.DOUBLE_PASS.gamePassId` in `src/shared/NoobBucks.luau` |
-| 2x Noob Bucks for 1 hour | R$ 25 (check) | Developer Product | `NoobBucks.BOOST.productId` in the same file |
+| 2x Noob Bucks for 1 hour | R$ 99 (set) | Developer Product | `NoobBucks.BOOST.productId` in the same file |
 
 The 1-hour boost counts real time (it keeps ticking even if you leave), and buying it again
 adds another hour. Players who own the pass can't buy the boost (they're already at 2x).
+
+## Noob Buck packs (set)
+
+| Pack | Price |
+| --- | --- |
+| 5 | R$ 25 |
+| 10 | R$ 50 |
+| 25 | R$ 150 |
+| 50 | R$ 350 |
+| 100 | R$ 700 |
 
 ## Black Hole and Mini Nuke: Robux-only price plan
 

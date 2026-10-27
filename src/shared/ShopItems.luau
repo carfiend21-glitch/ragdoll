@@ -2,7 +2,7 @@
 -- saves purchases) and players' screens (the shop window).
 --
 -- What Noob Bucks buy:
---   * EXCLUSIVE weapons, only from the shop (or Robux). They aren't stronger for their
+--   * EXCLUSIVE weapons, only from the shop. They aren't stronger for their
 --     price: like every weapon they cost cash in the round, priced by how much damage
 --     they do (see Weapons.luau). They're new ways to play, not a shortcut to winning.
 --   * Early unlocks: a weapon now, instead of earning its achievement first.
@@ -15,7 +15,7 @@
 -- Prices: a round winner earns 1 coin, and with up to 8 players that's a few coins
 -- an hour for most people. So cheap items (5-15) take a few hours of winning,
 -- the big flex items (60-90) are mostly for people who buy coins. 1 coin costs about
--- R$ 3.3-5 in the packs (see NoobBucks.luau).
+-- R$ 5-7 in the packs (see NoobBucks.luau).
 local ShopItems = {}
 
 -- The tabs down the side of the shop, in order. (The shop window adds a "Featured" tab
@@ -45,15 +45,15 @@ local CLASSIC_GREEN = BrickColor.new("Br. yellowish green").Color
 -- `new` = it gets a NEW badge. `robux` = the suggested Robux price of the weapon's Game
 -- Pass (the shop only shows a Robux button once its `gamePassId` is set in Weapons.luau).
 ShopItems.list = {
-	-- Exclusive weapons: only from the shop (or Robux)
-	{ id = "UnlockGravityFlipper", category = "Exclusive", kind = "unlock", weapon = "GravityFlipper", name = "Gravity Flipper", price = 25, robux = 99, new = true },
-	{ id = "UnlockFreezeRay", category = "Exclusive", kind = "unlock", weapon = "FreezeRay", name = "Freeze Ray", price = 30, robux = 99, new = true },
-	{ id = "UnlockAcidBlaster", category = "Exclusive", kind = "unlock", weapon = "AcidBlaster", name = "Acid Blaster", price = 30, robux = 99, new = true },
-	{ id = "UnlockStormCloud", category = "Exclusive", kind = "unlock", weapon = "StormCloud", name = "Storm Cloud", price = 35, robux = 149, new = true },
-	{ id = "UnlockBanHammer", category = "Exclusive", kind = "unlock", weapon = "BanHammer", name = "Ban Hammer", price = 40, robux = 149, new = true },
-	{ id = "UnlockRailgun", category = "Exclusive", kind = "unlock", weapon = "Railgun", name = "Railgun", price = 45, robux = 199, new = true },
-	{ id = "UnlockMinigun", category = "Exclusive", kind = "unlock", weapon = "Minigun", name = "Minigun", price = 55, robux = 249, new = true },
-	{ id = "UnlockMissileSwarm", category = "Exclusive", kind = "unlock", weapon = "MissileSwarm", name = "Missile Swarm", price = 55, robux = 249, new = true },
+	-- Exclusive weapons: only from the shop, with Noob Bucks
+	{ id = "UnlockGravityFlipper", category = "Exclusive", kind = "unlock", weapon = "GravityFlipper", name = "Gravity Flipper", price = 25, new = true },
+	{ id = "UnlockFreezeRay", category = "Exclusive", kind = "unlock", weapon = "FreezeRay", name = "Freeze Ray", price = 30, new = true },
+	{ id = "UnlockAcidBlaster", category = "Exclusive", kind = "unlock", weapon = "AcidBlaster", name = "Acid Blaster", price = 30, new = true },
+	{ id = "UnlockStormCloud", category = "Exclusive", kind = "unlock", weapon = "StormCloud", name = "Storm Cloud", price = 35, new = true },
+	{ id = "UnlockBanHammer", category = "Exclusive", kind = "unlock", weapon = "BanHammer", name = "Ban Hammer", price = 40, new = true },
+	{ id = "UnlockRailgun", category = "Exclusive", kind = "unlock", weapon = "Railgun", name = "Railgun", price = 45, new = true },
+	{ id = "UnlockMinigun", category = "Exclusive", kind = "unlock", weapon = "Minigun", name = "Minigun", price = 55, new = true },
+	{ id = "UnlockMissileSwarm", category = "Exclusive", kind = "unlock", weapon = "MissileSwarm", name = "Missile Swarm", price = 55, new = true },
 	-- Robux only: these two can't be bought with Noob Bucks (only tried for a round, below).
 	-- `price` is 0 because they cost no Noob Bucks; `robux` is what the Game Pass costs.
 	{ id = "RobuxBlackHole", category = "Exclusive", kind = "robux", weapon = "BlackHole", name = "Black Hole", price = 0, robux = 299, new = true },
