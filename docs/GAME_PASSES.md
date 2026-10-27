@@ -36,8 +36,8 @@ Doubles the Noob Bucks you get for **winning a round** and for being **voted bes
 
 | What | Suggested price | Type | Where the ID goes |
 | --- | --- | --- | --- |
-| 2x Noob Bucks forever | R$ 199 | Game Pass | `NoobBucks.DOUBLE_PASS.gamePassId` in `src/shared/NoobBucks.luau` |
-| 2x Noob Bucks for 1 hour | R$ 25 | Developer Product | `NoobBucks.BOOST.productId` in the same file |
+| 2x Noob Bucks forever | R$ 499 (set) | Game Pass | `NoobBucks.DOUBLE_PASS.gamePassId` in `src/shared/NoobBucks.luau` |
+| 2x Noob Bucks for 1 hour | R$ 25 (check) | Developer Product | `NoobBucks.BOOST.productId` in the same file |
 
 The 1-hour boost counts real time (it keeps ticking even if you leave), and buying it again
 adds another hour. Players who own the pass can't buy the boost (they're already at 2x).
