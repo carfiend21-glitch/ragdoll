@@ -118,6 +118,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gameP
 		return
 	end
 	PlayerData.grantWeapon(player, weapon.id)
+	AchievementService.checkUnlocks(player)
 	Remotes.DataSync:FireClient(player, PlayerData.getSyncData(player))
 	Remotes.Notify:FireClient(player, "🎉 THANK YOU!", weapon.name .. " is now unlocked forever!")
 end)
@@ -154,6 +155,12 @@ local function onPlayerAdded(player)
 	player:SetAttribute("Spectating", 0)
 	PlayerData.load(player)
 	if player.Parent then
+		-- Weapon-collecting achievements (a few seconds later, so their screen is ready for the pop-up)
+		task.delay(5, function()
+			if player.Parent then
+				AchievementService.checkUnlocks(player)
+			end
+		end)
 		ShopService.watch(player) -- their title and trail
 	end
 end

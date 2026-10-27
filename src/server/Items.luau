@@ -1096,6 +1096,7 @@ end
 local function fireGravityFlip(arena, item)
 	local noob, number = arena.noob, arena.noobNumber
 	noob:setGravity(-1)
+	arena.flippedUntil = os.clock() + FLIP_TIME -- (for the "Upside Down" achievement)
 	task.delay(FLIP_TIME, function()
 		if arena.noobNumber == number then -- (a fresh noob already has normal gravity)
 			noob:setGravity(1)
@@ -1513,6 +1514,7 @@ local function stepFan(arena, item, dt)
 			-- Weaker further away
 			part.AssemblyLinearVelocity += up * FAN_PUSH * (1 - 0.5 * along / FAN_RANGE) * dt
 			arena.armed = true -- the crashes it causes count
+			arena.fanPushedAt = os.clock() -- (for the "Gone With the Wind" achievement)
 		end
 	end
 	item.blowTime = (item.blowTime or 0) + dt

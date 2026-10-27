@@ -1349,6 +1349,10 @@ function Hud:showAchievement(id, weaponIds, reward)
 		end
 		subtitle = ("+%s  🎁 New weapon unlocked: %s"):format(Config.formatCash(reward or 0), table.concat(names, ", "))
 	end
+	-- The weapon-collecting achievements give Noob Bucks instead of cash
+	if achievement.bucks then
+		subtitle = ("+%d 💵 Noob Buck%s  %s"):format(achievement.bucks, if achievement.bucks == 1 then "" else "s", achievement.description)
+	end
 	self:showToast("🏆 " .. achievement.name:upper(), subtitle)
 end
 

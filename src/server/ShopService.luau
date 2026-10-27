@@ -7,6 +7,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local ShopItems = require(Shared.ShopItems)
 
+local AchievementService = require(script.Parent.AchievementService)
 local PlayerData = require(script.Parent.PlayerData)
 
 local ShopService = {}
@@ -160,6 +161,10 @@ local function buy(player, id)
 		elseif item.kind == "bundle" then "Everything in it is yours!"
 		else "Equipped!"
 	Remotes.Notify:FireClient(player, "🛍️ " .. name:upper(), subtitle)
+	-- Unlocking weapons counts toward the collecting achievements
+	if item.kind == "unlock" or item.kind == "bundle" then
+		AchievementService.checkUnlocks(player)
+	end
 end
 
 function ShopService.start()

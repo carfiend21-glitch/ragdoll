@@ -17,7 +17,37 @@ local WEAPON_ACHIEVEMENTS = {
 	Mine = "WatchYourStep",
 	Crossbow = "Bullseye",
 	Grenade = "Kaboom",
+	BearTrap = "Gotcha",
+	Harpoon = "GetOverHere",
+	Cannon = "HumanCannonball",
+	WreckingBall = "Wrecked",
+	StormCloud = "Thunderstruck",
+	BanHammer = "Banned",
 }
+-- Achievements for hitting the noob with a weapon this many times in one run: { hits, id }
+local RUN_HIT_ACHIEVEMENTS = {
+	Spikes = { 5, "Pincushion" },
+	Shotgun = { 12, "CloseRange" },
+	ClusterBomb = { 4, "ClusterFun" },
+	AcidBlaster = { 3, "MeltDown" },
+	Minigun = { 30, "BulletStorm" },
+	MissileSwarm = { 6, "HeatSeeker" },
+}
+-- Achievements for hitting this many body parts with one shot: { parts, id }
+local MULTI_HIT_ACHIEVEMENTS = {
+	TeslaCoil = { 3, "Shocking" },
+	Railgun = { 3, "PiercingShot" },
+}
+-- Achievements for destroying the noob with a certain weapon
+local FINISHER_ACHIEVEMENTS = {
+	RocketLauncher = "AirDefense",
+	BlackHole = "EventHorizon",
+	MiniNuke = "GroundZero",
+}
+-- How recently (seconds) the fan or the gravity flipper must have acted for a ceiling
+-- crash to count as theirs
+local CEILING_CREDIT = 0.6
+local ARMORY_WEAPONS = 15
 
 local AchievementService = {}
 
@@ -27,6 +57,10 @@ function AchievementService.award(player, id)
 	end
 	local reward = Achievements.rewardFor(Achievements.byId[id])
 	PlayerData.addCash(player, reward)
+	local bucks = Achievements.byId[id].bucks
+	if bucks then
+		PlayerData.addNoobBucks(player, bucks)
+	end
 	local newWeapons = {}
 	for _, weapon in Weapons.list do
 		if weapon.unlockedBy == id then
@@ -39,13 +73,45 @@ function AchievementService.award(player, id)
 	if PlayerData.achievementCount(player) >= 10 then
 		AchievementService.award(player, "Collector")
 	end
+	-- New weapons might have come with it
+	if #newWeapons > 0 then
+		AchievementService.checkUnlocks(player)
+	end
 end
 
--- The noob took damage. `source` is a weapon id, or "Impact" for a crash.
-function AchievementService.onHit(player, arena, source)
+-- The weapon-collecting achievements: call whenever someone might have unlocked a weapon
+-- (an achievement, a shop purchase, a Game Pass, or joining the game)
+function AchievementService.checkUnlocks(player)
+	local count, hasExclusive = PlayerData.unlockedWeaponStats(player)
+	if hasExclusive then
+		AchievementService.award(player, "ExclusiveClub")
+	end
+	if count >= ARMORY_WEAPONS then
+		AchievementService.award(player, "Armory")
+	end
+	if count >= #Weapons.list then
+		AchievementService.award(player, "FullArsenal")
+	end
+end
+
+-- The noob took damage. `source` is a weapon id, or "Impact" for a crash. `parts` = how
+-- many body parts that one hit reached.
+function AchievementService.onHit(player, arena, source, parts)
 	AchievementService.award(player, "FirstContact")
 	if WEAPON_ACHIEVEMENTS[source] then
 		AchievementService.award(player, WEAPON_ACHIEVEMENTS[source])
+	end
+	-- Hits with each weapon this run
+	local runHits = arena.runStats.hits or {}
+	arena.runStats.hits = runHits
+	runHits[source] = (runHits[source] or 0) + 1
+	local runGoal = RUN_HIT_ACHIEVEMENTS[source]
+	if runGoal and runHits[source] >= runGoal[1] then
+		AchievementService.award(player, runGoal[2])
+	end
+	local multiGoal = MULTI_HIT_ACHIEVEMENTS[source]
+	if multiGoal and (parts or 0) >= multiGoal[1] then
+		AchievementService.award(player, multiGoal[2])
 	end
 	if source == "Crossbow" then
 		arena.roundStats.arrowHits += 1
@@ -68,6 +134,13 @@ end
 
 -- One body part was hit. `outcome` is "Torn" if it got torn off.
 function AchievementService.onPartHit(player, arena, source, partKey, outcome)
+	if partKey == "Head" then
+		if source == "BoxingGlove" then
+			AchievementService.award(player, "Knockout")
+		elseif source == "FreezeRay" then
+			AchievementService.award(player, "BrainFreeze")
+		end
+	end
 	if source == "Crossbow" then
 		if partKey == "Head" then
 			AchievementService.award(player, "Headshot")
@@ -91,8 +164,8 @@ function AchievementService.onDestroyed(player, _arena, source, partKey)
 	if partKey == "Head" then
 		AchievementService.award(player, "WithoutTheHead")
 	end
-	if source == "RocketLauncher" then
-		AchievementService.award(player, "AirDefense")
+	if FINISHER_ACHIEVEMENTS[source] then
+		AchievementService.award(player, FINISHER_ACHIEVEMENTS[source])
 	end
 end
 
@@ -100,6 +173,13 @@ end
 function AchievementService.onSurface(player, arena, surface, speed)
 	if surface == "Ceiling" then
 		AchievementService.award(player, "FrequentFlyer")
+		local now = os.clock()
+		if now - (arena.fanPushedAt or 0) <= CEILING_CREDIT then
+			AchievementService.award(player, "GoneWithTheWind")
+		end
+		if now <= (arena.flippedUntil or 0) + CEILING_CREDIT then
+			AchievementService.award(player, "UpsideDown")
+		end
 	elseif surface == "Wall" then
 		if speed >= WALL_SLAM_SPEED then
 			AchievementService.award(player, "WallSlam")

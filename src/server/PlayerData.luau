@@ -274,6 +274,24 @@ function PlayerData.ownsWeapon(player, weaponId)
 	return weapon ~= nil and profile ~= nil and Weapons.isUnlocked(weapon, profile.achievements, extraWeapons(profile, true))
 end
 
+-- How many weapons the player has unlocked for good (rentals don't count), and
+-- whether one of them is an exclusive weapon
+function PlayerData.unlockedWeaponStats(player)
+	local profile = profiles[player]
+	if not profile then
+		return 0, false
+	end
+	local extra = extraWeapons(profile, true)
+	local count, hasExclusive = 0, false
+	for _, weapon in Weapons.list do
+		if Weapons.isUnlocked(weapon, profile.achievements, extra) then
+			count += 1
+			hasExclusive = hasExclusive or weapon.exclusive == true
+		end
+	end
+	return count, hasExclusive
+end
+
 function PlayerData.isRenting(player, weaponId)
 	local profile = profiles[player]
 	return profile ~= nil and profile.rentals[weaponId] == true

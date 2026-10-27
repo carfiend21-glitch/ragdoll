@@ -456,7 +456,7 @@ function Arena:hit(source, item, hits)
 			Remotes.HitFx:FireClient(viewer, reports, comboShown)
 		end
 	end
-	self.achievements.onHit(self.owner, self, source)
+	self.achievements.onHit(self.owner, self, source, #reports)
 end
 
 -- What a crash sounds like, by what the noob hit (the Surface attribute on room parts)
