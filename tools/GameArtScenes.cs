@@ -214,7 +214,9 @@ public static class GameArtScenes
         using (var bmp = new Bitmap(1920, 1080))
         using (var g = GameArt.Prepare(bmp))
         {
-            GameArt.Rays(g, new RectangleF(0, 0, 1920, 1080), 960, 600, Color.FromArgb(40, 25, 80), Color.FromArgb(60, 40, 110), 24);
+            GameArt.Rays(g, new RectangleF(0, 0, 1920, 1080), 960, 600, Color.FromArgb(28, 18, 16), Color.FromArgb(48, 28, 22), 24);
+            GameArt.Glow(g, 960, 600, 1100, Color.FromArgb(255, 100, 20), false);
+            Vignette(g, 1920, 1080, 200);
             string[] names = { "ROOM 1", "ROOM 2", "ROOM 3", "ROOM 4" };
             string[] scores = { "152,400", "98,750", "121,300", "64,200" };
             double[][] poses = {
@@ -250,16 +252,39 @@ public static class GameArtScenes
         }
     }
 
-    // The game icon: the noob blasted through the air, the core of the game
+    // The game icon: like the main thumbnail, shrunk to a square. A dark room lit by a
+    // blast, and the noob blasted at the camera with an arm popping off. Kept simple and
+    // bold, because it's often shown tiny.
     static void Icon(string path)
     {
         using (var bmp = new Bitmap(512, 512))
         using (var g = GameArt.Prepare(bmp))
         {
-            GameArt.Rays(g, new RectangleF(0, 0, 512, 512), 256, 230, Color.FromArgb(75, 30, 140), Color.FromArgb(105, 55, 180), 20);
-            GameArt.Explosion(g, 150, 330, 150, 2);
-            using (var noob = Noob(600, 10, 25, -30, 20, 130, 60, 40, -25)) GameArt.Place(g, noob, 285, 225, 390, -8);
-            GameArt.Title(g, "RAGDOLL PVP", "Arial Black", 54, new RectangleF(0, 410, 512, 100), Gold1, Gold2, Ink, 12, StringAlignment.Center, -3);
+            var rng = new Random(5);
+            float bx = 100, by = 330; // the blast
+            GameArt.Room(g, new RectangleF(-40, -30, 592, 572), null);
+            Shade(g, new Rectangle(0, 0, 512, 512), 225);
+            GameArt.Glow(g, bx, by, 420, Color.FromArgb(255, 110, 25), false);
+            GameArt.Glow(g, bx, by, 210, Color.FromArgb(255, 200, 90));
+            for (int i = 0; i < 22; i++)
+            {
+                double a = -1.4 + rng.NextDouble() * 1.5;
+                float d0 = 90 + (float)rng.NextDouble() * 90, d1 = d0 + 120 + (float)rng.NextDouble() * 260;
+                using (var pen = new Pen(Color.FromArgb(50 + rng.Next(90), 255, 235, 200), 2 + (float)rng.NextDouble() * 3) { StartCap = LineCap.Triangle, EndCap = LineCap.Round })
+                    g.DrawLine(pen, bx + (float)Math.Cos(a) * d0, by + (float)Math.Sin(a) * d0, bx + (float)Math.Cos(a) * d1, by + (float)Math.Sin(a) * d1);
+            }
+            using (var pen = new Pen(Color.FromArgb(140, 255, 240, 200), 8)) g.DrawEllipse(pen, bx - 230, by - 160, 460, 320);
+            GameArt.Explosion(g, bx, by, 150, 3);
+            GameArt.Glow(g, 300, 220, 190, Color.FromArgb(255, 90, 20), false);
+            using (var noob = NoobNoLeftArm(700, 15, 35, -25, 25, 70, 55, -40)) GameArt.Place(g, noob, 300, 215, 440, -14);
+            var arm = new GameArt.Model();
+            arm.Box(new GameArt.V3(0, 0, 0), GameArt.M3.Angles(20, 30, 0), new GameArt.V3(1, 2, 1), GameArt.Yellow);
+            using (var img = GameArt.Render(arm, 300, new GameArt.V3(1.2, 1, -6), new GameArt.V3(0, 0, 0), 32, 3))
+                GameArt.Place(g, img, 462, 250, 120, 48);
+            GameArt.Glow(g, 432, 222, 34, Color.FromArgb(255, 240, 150));
+            Vignette(g, 512, 512, 240);
+            GameArt.Title(g, "RAGDOLL", "Arial Black", 62, new RectangleF(0, 362, 512, 70), Gold1, Gold2, Ink, 13, StringAlignment.Center, -3);
+            GameArt.Title(g, "PVP", "Arial Black", 70, new RectangleF(0, 425, 512, 80), Color.FromArgb(255, 110, 80), Color.FromArgb(200, 20, 20), Ink, 14, StringAlignment.Center, -3);
             GameArt.Save(bmp, path);
         }
     }
