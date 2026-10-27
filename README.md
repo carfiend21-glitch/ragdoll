@@ -27,7 +27,15 @@ Weapons are sold as Game Passes (bought once, kept forever).
 2. Give it a name, picture and price, and turn on **Item for Sale**.
 3. Copy the pass's ID number and paste it into that weapon's `gamePassId` in `src/shared/Weapons.luau`.
 
-A weapon with `gamePassId = 0` shows as "not for sale yet".
+A weapon with `gamePassId = 0` shows as "not for sale yet" (exclusive weapons can still
+be unlocked with Noob Bucks). The full plan for Game Passes, with suggested prices, is in
+[docs/GAME_PASSES.md](docs/GAME_PASSES.md).
+
+## Noob Buck pictures
+
+The pictures to upload for the Noob Buck packs (Developer Products) are in
+`images/developer-products`. To remake them, run `.\tools\make-noob-buck-images.ps1` in
+PowerShell. It draws the same noob as the game, using Roblox Studio's own head and face.
 
 ## Adding things
 
