@@ -11,6 +11,11 @@ local PlayerData = require(script.Parent.PlayerData)
 
 local WALL_SLAM_SPEED = 40
 local PINBALL_SPEED = 8 -- slower than this doesn't count as bouncing off a wall
+local TO_THE_MOON_SPEED = 50
+local HANG_TIME = 4 -- seconds in the air without touching the floor
+local COMBO_KING = 15
+local HAT_TRICK = 3 -- noobs destroyed in one round
+local EXTRA_CRISPY = 4 -- body parts burning at once
 
 -- Achievements for hitting the noob with a certain weapon
 local WEAPON_ACHIEVEMENTS = {
@@ -124,6 +129,9 @@ function AchievementService.onHit(player, arena, source, parts)
 			AchievementService.award(player, "Bombing")
 		end
 	end
+	if arena.combo >= COMBO_KING then
+		AchievementService.award(player, "ComboKing")
+	end
 	if arena:countRecentTraps() >= 2 then
 		AchievementService.award(player, "ChainReaction")
 	end
@@ -159,8 +167,12 @@ function AchievementService.onPartHit(player, arena, source, partKey, outcome)
 end
 
 -- The noob was destroyed. `partKey` is the body part that finished it off.
-function AchievementService.onDestroyed(player, _arena, source, partKey)
+function AchievementService.onDestroyed(player, arena, source, partKey)
 	AchievementService.award(player, "Destroyed")
+	arena.roundStats.destroys += 1
+	if arena.roundStats.destroys >= HAT_TRICK then
+		AchievementService.award(player, "HatTrick")
+	end
 	if partKey == "Head" then
 		AchievementService.award(player, "WithoutTheHead")
 	end
@@ -173,6 +185,9 @@ end
 function AchievementService.onSurface(player, arena, surface, speed)
 	if surface == "Ceiling" then
 		AchievementService.award(player, "FrequentFlyer")
+		if speed >= TO_THE_MOON_SPEED then
+			AchievementService.award(player, "ToTheMoon")
+		end
 		local now = os.clock()
 		if now - (arena.fanPushedAt or 0) <= CEILING_CREDIT then
 			AchievementService.award(player, "GoneWithTheWind")
@@ -190,6 +205,20 @@ function AchievementService.onSurface(player, arena, surface, speed)
 				AchievementService.award(player, "Pinball")
 			end
 		end
+	end
+end
+
+-- The noob has been in the air for `seconds` without touching the floor (during a run)
+function AchievementService.onAirborne(player, _arena, seconds)
+	if seconds >= HANG_TIME then
+		AchievementService.award(player, "HangTime")
+	end
+end
+
+-- `count` body parts are on fire right now
+function AchievementService.onBurning(player, _arena, count)
+	if count >= EXTRA_CRISPY then
+		AchievementService.award(player, "ExtraCrispy")
 	end
 end
 

@@ -41,6 +41,12 @@ Achievements.list = {
 	{ id = "Bombing", name = "Bombing", description = "Blow up the noob with land mines 5 times in one round.", reward = 160 },
 	{ id = "Collector", name = "Collector", description = "Earn 10 achievements.", reward = 300 },
 	{ id = "Toasty", name = "Toasty", description = "Set the noob on fire." },
+	-- Skill ones
+	{ id = "ToTheMoon", name = "To The Moon", description = "Smash the noob into the ceiling really fast." },
+	{ id = "HangTime", name = "Hang Time", description = "Keep the noob in the air for 4 seconds straight.", reward = 160 },
+	{ id = "ComboKing", name = "Combo King", description = "Build a 15-hit combo.", reward = 200 },
+	{ id = "HatTrick", name = "Hat Trick", description = "Destroy the noob 3 times in one round.", reward = 200 },
+	{ id = "ExtraCrispy", name = "Extra Crispy", description = "Have 4 body parts on fire at the same time.", reward = 160 },
 
 	-- One for each of the newer weapons
 	{ id = "Pincushion", name = "Pincushion", description = "Stab the noob with spikes 5 times in one run." },

@@ -119,7 +119,7 @@ function Arena:resetScore()
 	self.ignoreImpactUntil = 0
 	self.lastSpeed = 0
 	self.airTime = 0 -- seconds in the air not yet paid out as cash
-	self.roundStats = { arrowHits = 0, mineHits = 0 } -- for achievements
+	self.roundStats = { arrowHits = 0, mineHits = 0, destroys = 0 } -- for achievements
 	self.runStats = { wallHits = 0 }
 end
 
@@ -142,6 +142,7 @@ function Arena:_setInRun(inRun)
 	self.stillTime = 0
 	self.runStats = { wallHits = 0 }
 	self.runDamage = 0 -- damage done since PLAY was pressed
+	self.hangTime = 0 -- seconds in the air without touching the floor
 	self.room:SetAttribute("InRun", inRun)
 end
 
@@ -666,6 +667,9 @@ end
 -- Burning body parts take damage and blacken a little at a time
 function Arena:_stepFire(dt)
 	local burning = self.noob:updateFires(dt)
+	if #burning > 0 and self.active and self.owner then
+		self.achievements.onBurning(self.owner, self, #burning)
+	end
 	self.burnTimer -= dt
 	if #burning == 0 or self.burnTimer > 0 then
 		return
@@ -687,9 +691,12 @@ function Arena:_stepAirTime(dt)
 	end
 	for _, part in self.noob.parts do
 		if self.noob.attached[part] and part.Position.Y - self.origin.Y < AIRBORNE_HEIGHT then
+			self.hangTime = 0
 			return -- on (or nearly on) the floor
 		end
 	end
+	self.hangTime += dt
+	self.achievements.onAirborne(self.owner, self, self.hangTime)
 	self.airTime += dt
 	if self.airTime >= 1 / Config.AIRTIME_CASH_PER_SECOND then
 		self.airTime = 0
