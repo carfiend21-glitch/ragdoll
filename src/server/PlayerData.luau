@@ -24,7 +24,7 @@ if not ok then
 end
 
 -- [player] = { achievements = { [id] = true }, owned = { [weaponId] = true }, wins = number,
---              winsValue = IntValue, bestRun = number, cash = number, canSave = bool, dirty = bool,
+--              winsValue = IntValue, bestRun = number, bestRound = number, cash = number, canSave = bool, dirty = bool,
 --              saveQueued = bool, noobBucks = number, unsavedBucks = number,
 --              purchases = { [purchaseId] = true }, items = { [shop item id] = true },
 --              equipped = { [shop category] = item id }, rentals = { [weaponId] = true } }
@@ -92,6 +92,7 @@ function PlayerData.load(player)
 	local sequenceWins = 0 -- times the lobby voted their attacks the best sequence
 	local boostUntil = 0 -- when their 1-hour 2x Noob Bucks boost runs out (os.time())
 	local bestRun = 0 -- most damage they've ever done in one run
+	local bestRound = 0 -- highest score they've ever had in one round (the lobby's MOST POINTS board)
 	local cash = Config.STARTING_CASH -- cash isn't saved: everyone starts fresh
 	local noobBucks = 0
 	local purchases = {} -- set of purchase IDs
@@ -130,6 +131,9 @@ function PlayerData.load(player)
 				purchases[purchaseId] = true
 				table.insert(purchaseOrder, purchaseId)
 			end
+		end
+		if type(saved.bestRound) == "number" then
+			bestRound = saved.bestRound
 		end
 		if type(saved.bestRun) == "number" then
 			bestRun = saved.bestRun
@@ -177,6 +181,7 @@ function PlayerData.load(player)
 		doubleBucks = doubleBucks,
 		boostUntil = boostUntil,
 		bestRun = bestRun,
+		bestRound = bestRound,
 		cash = cash,
 		canSave = loaded,
 		dirty = false,
@@ -484,14 +489,14 @@ function PlayerData.addSequenceWin(player)
 	return profile.sequenceWins
 end
 
--- Their saved wins, best run and best-sequence votes (nil if their data didn't load),
+-- Their saved wins, best round score and best-sequence votes (nil if their data didn't load),
 -- so the lobby leaderboards can be brought up to date when they join
 function PlayerData.leaderboardStats(player)
 	local profile = profiles[player]
 	if not profile or not profile.canSave then
 		return nil
 	end
-	return { wins = profile.wins, bestRun = profile.bestRun, sequenceWins = profile.sequenceWins }
+	return { wins = profile.wins, bestRound = profile.bestRound, sequenceWins = profile.sequenceWins }
 end
 
 -- Returns true if `damage` beats their best ever run
@@ -501,6 +506,17 @@ function PlayerData.recordRun(player, damage)
 		return false
 	end
 	profile.bestRun = damage
+	profile.dirty = true
+	return true
+end
+
+-- Returns true if `score` (their score so far this round) beats their best ever round
+function PlayerData.recordRound(player, score)
+	local profile = profiles[player]
+	if not profile or score <= profile.bestRound then
+		return false
+	end
+	profile.bestRound = score
 	profile.dirty = true
 	return true
 end
@@ -586,6 +602,7 @@ function PlayerData.save(player)
 		data.sequenceWins = math.max(if type(data.sequenceWins) == "number" then data.sequenceWins else 0, profile.sequenceWins)
 		data.boostUntil = math.max(if type(data.boostUntil) == "number" then data.boostUntil else 0, profile.boostUntil)
 		data.bestRun = math.max(if type(data.bestRun) == "number" then data.bestRun else 0, profile.bestRun)
+		data.bestRound = math.max(if type(data.bestRound) == "number" then data.bestRound else 0, profile.bestRound)
 		-- (Saves from before the rename used "noobCoins": move those over)
 		local before = if type(data.noobBucks) == "number"
 			then data.noobBucks

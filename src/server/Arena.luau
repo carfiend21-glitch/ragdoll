@@ -305,7 +305,6 @@ function Arena:_recordRun()
 	local damage = self.runDamage
 	self.runDamage = 0
 	if self.owner and damage > 0 and PlayerData.recordRun(self.owner, damage) then
-		Leaderboards.recordRun(self.owner, damage)
 		Remotes.Notify:FireClient(self.owner, "⭐ NEW BEST RUN!", Config.formatScore(damage) .. " points in one run")
 	end
 end
@@ -548,6 +547,10 @@ function Arena:hit(source, item, hits)
 	end
 
 	self.owner:SetAttribute("Damage", self.damage)
+	-- The lobby's MOST POINTS board follows their round score live
+	if PlayerData.recordRound(self.owner, self.damage) then
+		Leaderboards.recordRound(self.owner, self.damage)
+	end
 	self.recorder:event("damage", { damage = self.damage })
 	self:_playHitSounds(source, reports)
 	-- The player and anyone spectating them see the hit numbers and blood

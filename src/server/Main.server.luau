@@ -192,6 +192,7 @@ end)
 
 -- Save everyone when the server shuts down, and every minute just in case
 game:BindToClose(PlayerData.saveAllAndWait)
+game:BindToClose(Leaderboards.saveNow)
 task.spawn(function()
 	while true do
 		task.wait(60)
