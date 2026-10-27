@@ -84,7 +84,7 @@ end
 --   "boom" { position, radius }           "arrow" { part = body part number, offset = CFrame }
 --   "torn" { part = body part number }    "play" / "pause" / "restart"
 --   "nuke" { position }                   "radiation" (the room glows for the rest of the round)
---   "swallow" { position } (the black hole swallowed the noob)
+--   "swallow" { position } (the black hole swallowed the noob)   "pop" { position } (then it popped)
 -- Positions (`position`, `target`) and directions are given in the world and stored in
 -- the room's own directions.
 function Recorder:event(kind, fields)

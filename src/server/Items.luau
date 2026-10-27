@@ -167,16 +167,21 @@ local MINIGUN_SPEED = 100
 local MISSILE_SPEED = 40
 local MISSILE_TURN = math.rad(300) -- how fast (per second) a missile can turn to chase the noob
 -- Black hole
-local PULL_RANGE = 50 -- reaches anywhere in the room
-local PULL_STRENGTH = 140
-local SWIRL_STRENGTH = 60
+local PULL_RANGE = 18 -- how far away it starts pulling
+-- The pull gets stronger the closer you get: PULL_BASE + PULL_CLOSE / (distance + 1)
+-- (about 40 at the edge of its range, 100 at 5 studs, 265 right at the middle)
+local PULL_BASE = 15
+local PULL_CLOSE = 500
+local SWIRL = 0.3 -- how much it swirls round as well (part of the pull)
+local SWIRL_DRAG = 1.5 -- slows the swirling, so the noob spirals in instead of orbiting
+local WEIGHTLESS = 0.85 -- how much of the noob's gravity is cancelled while it's caught
 local GRIND_RADIUS = 3.2 -- arms and legs this close to the middle get torn at
 local GRIND_DAMAGE = 5
 local GRIND_TICK = 0.25
-local SWALLOW_RADIUS = 3.2 -- once the torso or head gets this close, the noob is swallowed
-local SWALLOW_TIME = 0.5 -- seconds for the noob to vanish into it
-local SHRINK_TIME = 1.3 -- seconds for the black hole to shrink away to nothing afterwards
-local ATOM_SCALE = 0.01 -- how small it gets before it's gone
+local SWALLOW_RADIUS = 1.2 -- once the middle of the torso or head gets this close, it's swallowed
+local SWALLOW_TIME = 0.25 -- seconds for the noob to vanish into it
+local SHRINK_TIME = 1.6 -- seconds for the black hole to shrink away afterwards
+local ATOM_SCALE = 0.002 -- microscopic: how small it gets before it pops
 -- Cluster bomb
 local BOMBLETS = 5
 
@@ -1601,7 +1606,7 @@ local function stepWreckingBall(arena, item, dt)
 end
 
 -- The black hole is done: it shrinks smaller and smaller, spinning faster, until it's
--- the size of an atom, and then it's gone
+-- microscopic, and then it's gone with a pop
 local function collapseBlackHole(arena, item)
 	item.broken = true -- used up (Items.step leaves it alone from now on)
 	item.uses = 0
@@ -1617,9 +1622,15 @@ local function collapseBlackHole(arena, item)
 			local center = item.model:GetPivot()
 			spinRound(item.spinParts, center.Position, center.LookVector, (4 + 20 * shrink) * step)
 			-- Slow at first, then faster and faster
-			item.model:ScaleTo(math.max(ATOM_SCALE, 1 - shrink * shrink))
+			pcall(item.model.ScaleTo, item.model, math.max(ATOM_SCALE, 1 - shrink * shrink))
 		end
-		arena:removeItem(item)
+		if arena.items[item.id] == item then
+			local center = item.model:GetPivot().Position
+			Sounds.playAt("LimbPop", center, 1.5)
+			puff(arena.room, center, 1.2, Color3.fromRGB(230, 200, 255), 0.25)
+			arena.recorder:event("pop", { position = center })
+			arena:removeItem(item)
+		end
 	end)
 end
 
@@ -1663,11 +1674,14 @@ local function stepBlackHole(arena, item, dt)
 		if distance < PULL_RANGE and distance > 0.01 then
 			local inward = offset.Unit
 			local swirl = towardCamera:Cross(inward) -- round and round, flat to the camera
-			local strength = 1 - 0.5 * distance / PULL_RANGE
-			local velocity = part.AssemblyLinearVelocity + (inward * PULL_STRENGTH + swirl * SWIRL_STRENGTH) * strength * dt
-			if distance < 4 then
-				velocity *= 0.96 -- caught: it can't fling itself back out
-			end
+			local pull = PULL_BASE + PULL_CLOSE / (distance + 1) -- the closer, the stronger
+			local velocity = part.AssemblyLinearVelocity
+			-- Slow down the going-round part of its speed, so it spirals inward
+			local sideways = velocity - inward * velocity:Dot(inward)
+			velocity -= sideways * math.min(SWIRL_DRAG * dt, 1)
+			velocity += (inward + swirl * SWIRL) * pull * dt
+			-- Caught in the pull, the noob floats instead of falling out of it
+			velocity += Vector3.yAxis * Config.NOOB_GRAVITY * WEIGHTLESS * dt
 			part.AssemblyLinearVelocity = velocity
 			arena.armed = true
 			local limb = part ~= arena.noob.torso and part ~= arena.noob.parts[2]

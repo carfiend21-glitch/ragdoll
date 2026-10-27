@@ -587,6 +587,11 @@ local function handleEvent(cell, event)
 	elseif kind == "swallow" then
 		clearStuck(cell) -- arrows and stumps go with it
 		swallow(cell)
+	elseif kind == "pop" then
+		-- The black hole, shrunk to nothing, pops
+		local spark = newPart(cell.viewport, Vector3.one * 0.1, CFrame.new(event.position), Color3.fromRGB(230, 200, 255), Enum.Material.Neon, Enum.PartType.Ball)
+		TweenService:Create(spark, TweenInfo.new(0.25 / currentSpeed), { Size = Vector3.one * 1.2, Transparency = 1 }):Play()
+		task.delay(0.25 / currentSpeed + 0.1, spark.Destroy, spark)
 	elseif kind == "hit" then
 		bleed(cell, event.position, event.damage or event.points) -- blood goes by the real damage
 		popup(cell, event.position, event.points, event.part)
