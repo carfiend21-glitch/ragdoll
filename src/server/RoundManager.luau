@@ -167,13 +167,18 @@ local function playRound(arenas)
 		sequenceWinner, sequenceBucks = SequenceVote.run(top, countdown)
 	end
 
-	-- Most damage wins (a tie means everyone tied for first wins)
-	local best = 0
+	-- Most damage wins (a tie means everyone tied for first wins). There's only a winner
+	-- when at least 2 players are in the round and someone beat someone, so nobody can
+	-- farm wins and Noob Bucks alone in an empty server.
+	local best, worst, playing = 0, math.huge, 0
 	for _, entry in roster do
 		if entry.player.Parent then
 			best = math.max(best, entry.arena.damage)
+			worst = math.min(worst, entry.arena.damage)
+			playing += 1
 		end
 	end
+	local hasWinner = playing >= 2 and best > worst
 	local results = {}
 	for _, entry in roster do
 		-- A rented weapon lasts for one round of actually using it (see PlayerData.endRentals)
@@ -182,7 +187,10 @@ local function playRound(arenas)
 		end
 		if entry.player.Parent then
 			local damage = entry.arena.damage
-			local winner = best > 0 and damage == best
+			local winner = hasWinner and damage == best
+			if playing < 2 then
+				Remotes.Notify:FireClient(entry.player, "🏆 NO WIN THIS ROUND", "Wins count when 2+ players are in the round.")
+			end
 			local votedBest = entry.player.UserId == sequenceWinner
 			-- (double with the 2x Noob Bucks pass or boost)
 			local winBucks = if winner then NoobBucks.WIN_REWARD * PlayerData.bucksMultiplier(entry.player) else 0
