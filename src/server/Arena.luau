@@ -43,7 +43,7 @@ function Arena.new(index, room, achievements)
 	local self = setmetatable({}, Arena)
 	self.index = index
 	self.room = room.model
-	self.labels = room.labels -- the sign inside the room, and the one outside facing the lobby
+	self.nameLabel = room.nameLabel -- under "ROOM #" on the sign: who's playing in it
 	self.itemsFolder = room.model.Items
 	self.roomCFrame = Config.getRoomCFrame(index) -- where the room is and which way it faces
 	self.origin = self.roomCFrame.Position -- middle of the floor
@@ -64,7 +64,7 @@ function Arena.new(index, room, achievements)
 	-- The room's classic look, so a room theme can be put on and taken off again
 	self.roomParts = {}
 	for _, part in self.room:GetChildren() do
-		if part:IsA("BasePart") and part.Name ~= "Glass" and part.Name ~= "Sign" and part.Name ~= "OutsideSign" then
+		if part:IsA("BasePart") and part.Name ~= "Glass" and part.Name ~= "Sign" then
 			self.roomParts[part] = { part.Color, part.Material }
 		end
 	end
@@ -95,13 +95,6 @@ function Arena:_applyLooks(equipped)
 	self.noob:setSkin(self.looks.NoobSkin)
 	-- Blood is drawn on players' screens, so they read the color from here
 	self.room:SetAttribute("BloodStyle", self.looks.Blood.id)
-end
-
--- Writes on both of the room's name signs (inside, and outside facing the lobby)
-function Arena:_setLabel(text)
-	for _, label in self.labels do
-		label.Text = text
-	end
 end
 
 -- The look ids, for the replays: { NoobSkin = id, Blood = id, Room = id, Finish = id }
@@ -193,7 +186,7 @@ function Arena:startRound(player)
 	self.owner = player
 	self.active = true
 	PlayerData.resetCash(player) -- everyone starts each round with the same small amount
-	self:_setLabel(("ROOM %d: %s"):format(self.index, player.DisplayName))
+	self.nameLabel.Text = player.DisplayName
 	self.recorder:start()
 end
 
@@ -224,7 +217,7 @@ function Arena:clear()
 	self:_setInRun(false)
 	self:_applyLooks({})
 	self:respawnNoob()
-	self:_setLabel("ROOM " .. self.index)
+	self.nameLabel.Text = ""
 end
 
 function Arena:clearItems()

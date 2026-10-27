@@ -361,14 +361,19 @@ function WorldBuilder.buildRooms()
 		-- Stripe along the bottom of the back wall
 		newDecor(room, "Stripe", Vector3.new(W, 1.5, 0.2), at(Vector3.new(0, 0.75, -D / 2 + 0.1)), Color3.fromRGB(150, 153, 160))
 
-		-- Name sign at the top of the back wall
-		local signPart = newDecor(room, "Sign", Vector3.new(16, 2, 0.2), at(Vector3.new(0, H - 2, -D / 2 + 0.1)), Color3.fromRGB(35, 40, 60))
-		local label = newSign(signPart, Enum.NormalId.Back, "ROOM " .. index, Color3.new(1, 1, 1))
-
-		-- A big sign on the outside of the back wall, facing the lobby, so people in
-		-- the lobby can see whose room is whose
-		local outsidePart = newDecor(room, "OutsideSign", Vector3.new(30, 5, 0.4), at(Vector3.new(0, H - 5, -D / 2 - t - 0.2)), Color3.fromRGB(35, 40, 60))
-		local outsideLabel = newSign(outsidePart, Enum.NormalId.Front, "ROOM " .. index, Color3.new(1, 1, 1))
+		-- "ROOM #" sign at the top of the back wall, big enough to read from the lobby,
+		-- with whoever's playing in it written underneath during a round
+		local signPart = newDecor(room, "Sign", Vector3.new(18, 3.6, 0.2), at(Vector3.new(0, H - 2.4, -D / 2 + 0.1)), Color3.fromRGB(35, 40, 60))
+		newSign(signPart, Enum.NormalId.Back, "ROOM " .. index, Color3.new(1, 1, 1)).Size = UDim2.fromScale(1, 0.62)
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Position = UDim2.fromScale(0.05, 0.6)
+		nameLabel.Size = UDim2.fromScale(0.9, 0.36)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.FredokaOne
+		nameLabel.TextScaled = true
+		nameLabel.TextColor3 = Color3.fromRGB(255, 205, 60)
+		nameLabel.Text = ""
+		nameLabel.Parent = signPart:FindFirstChildOfClass("SurfaceGui")
 
 		-- Ceiling lamps are just for looks: real lights made the room glaringly bright
 		for _, x in { -W / 4, W / 4 } do
@@ -380,7 +385,7 @@ function WorldBuilder.buildRooms()
 		items.Parent = room
 
 		room.Parent = folder
-		rooms[index] = { model = room, labels = { label, outsideLabel } }
+		rooms[index] = { model = room, nameLabel = nameLabel }
 	end
 
 	folder.Parent = Workspace

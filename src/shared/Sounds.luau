@@ -6,6 +6,8 @@ local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
+local Config = require(script.Parent.Config)
+
 local Sounds = {}
 
 Sounds.LIST = {
@@ -68,34 +70,49 @@ Sounds.LIST = {
 	FinalTicks = { id = 1835342628, volume = 0.3, vary = 0 }, -- "Deadly Heist Clock Ticking Double Time" (APM)
 }
 
--- Room sounds can be heard from your own room's camera (about 80-100 studs out in
--- front of it), but fade out before the rooms next door (about 112 studs away)
+-- Room sounds can be heard all the way from a room's camera (about 80-100 studs out
+-- in front of it, across the lobby)
 local HEARING_FULL = 100
 local HEARING_MAX = 110
+-- How loud the rooms are while you're in the lobby (they're all around it)
+local LOBBY_ROOM_VOLUME = 0.25
 
--- Every sound from the rooms goes through this group. In the lobby, which sits in the
--- middle of the ring of rooms, players' screens turn it down (see Sounds.setRoomVolume).
-local function roomSoundGroup()
-	local group = SoundService:FindFirstChild("RoomSounds")
+-- Every room has its own sound group ("RoomSounds3" for room 3), so each player's
+-- screen can play only the room they're watching: the rooms all face the lobby, so a
+-- room's camera is just as close to the other rooms as to its own.
+-- Sounds that aren't in a room go in "RoomSounds".
+local function soundGroup(name)
+	local group = SoundService:FindFirstChild(name)
 	if not group then
 		group = Instance.new("SoundGroup")
-		group.Name = "RoomSounds"
+		group.Name = name
 		group.Parent = SoundService
 	end
 	return group
 end
 
--- How loud the rooms are on this player's screen (1 = full). Players' devices only.
--- (Changing it on a player's device only changes it for them.)
-function Sounds.setRoomVolume(volume)
-	local group = SoundService:FindFirstChild("RoomSounds")
-	if group then
-		group.Volume = volume
+local function roomSoundGroup(position)
+	local room = Config.roomAt(position)
+	return soundGroup(if room then "RoomSounds" .. room else "RoomSounds")
+end
+
+-- Which room's sounds this player hears: `watching` = the room number they're
+-- playing in or spectating, or nil in the lobby (then every room plays quietly).
+-- Players' devices only (changing it there only changes it for that player).
+function Sounds.setRoomSounds(watching)
+	for room = 1, Config.ROOM_COUNT do
+		local group = SoundService:FindFirstChild("RoomSounds" .. room)
+		if group then
+			group.Volume = if watching == nil then LOBBY_ROOM_VOLUME elseif watching == room then 1 else 0
+		end
 	end
 end
--- The server makes the group straight away, so it's there for everyone
+-- The server makes the groups straight away, so they're there for everyone
 if RunService:IsServer() then
-	roomSoundGroup()
+	soundGroup("RoomSounds")
+	for room = 1, Config.ROOM_COUNT do
+		soundGroup("RoomSounds" .. room)
+	end
 end
 
 local function newSound(name)
@@ -116,7 +133,7 @@ function Sounds.playAt(name, position, volumeScale)
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = HEARING_FULL
 	sound.RollOffMaxDistance = HEARING_MAX
-	sound.SoundGroup = roomSoundGroup()
+	sound.SoundGroup = roomSoundGroup(position)
 	local spot = Instance.new("Attachment")
 	spot.Name = "Sound"
 	spot.Parent = Workspace.Terrain
@@ -136,7 +153,7 @@ function Sounds.newLoop(name, part)
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = HEARING_FULL
 	sound.RollOffMaxDistance = HEARING_MAX
-	sound.SoundGroup = roomSoundGroup()
+	sound.SoundGroup = roomSoundGroup(part.Position)
 	sound.Parent = part
 	return sound
 end

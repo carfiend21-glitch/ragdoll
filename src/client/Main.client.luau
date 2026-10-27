@@ -111,8 +111,11 @@ local function updateMusic()
 	setLayer(lobbyLayer, not inRound)
 	setLayer(roundLayer, inRound)
 	setLayer(ticksLayer, inRound and wasInRound and timeLeft > 0 and timeLeft <= FINAL_STRETCH)
-	-- The lobby is in the middle of the ring of rooms: turn the rooms down while you're there
-	Sounds.setRoomVolume(if inRound then 1 else 0.25)
+	-- Only hear the room you're playing in or watching (in the lobby, which is in the
+	-- middle of the ring, all the rooms play quietly)
+	local room = player:GetAttribute("Room") or 0
+	local watching = if room > 0 then room else player:GetAttribute("Spectating") or 0
+	Sounds.setRoomSounds(if inRound and watching > 0 then watching else nil)
 end
 Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Room"):Connect(updateMusic)

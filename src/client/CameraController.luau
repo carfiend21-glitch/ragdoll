@@ -58,6 +58,55 @@ local function roomView(room, viewport, spectating)
 	return Config.getRoomCFrame(room) * CFrame.new(offset) -- looking straight into the room
 end
 
+-- The rooms face the lobby, so a room's camera looks across it. While you're watching
+-- a room, the lobby and everyone's avatars turn invisible on your screen only, so
+-- nothing gets in the way. `hidden` remembers what to put back: { [thing] = how it was }
+local hidden = {}
+
+local function hideThing(thing)
+	if hidden[thing] ~= nil then
+		return
+	end
+	if thing:IsA("BasePart") or thing:IsA("Decal") then -- (Textures are Decals too)
+		hidden[thing] = thing.LocalTransparencyModifier
+		thing.LocalTransparencyModifier = 1
+	elseif thing:IsA("LayerCollector") or thing:IsA("Trail") or thing:IsA("ParticleEmitter") then
+		-- Signs, name tags, titles, trails
+		hidden[thing] = thing.Enabled
+		thing.Enabled = false
+	end
+end
+
+-- `withLobby` = hide the lobby too (only needed once, when you start watching a room;
+-- avatars get checked every frame because they can respawn)
+local function hideLobbyView(withLobby)
+	local groups = {}
+	if withLobby then
+		table.insert(groups, Workspace:FindFirstChild("Lobby"))
+	end
+	for _, other in Players:GetPlayers() do
+		table.insert(groups, other.Character)
+	end
+	for _, group in groups do
+		for _, thing in group:GetDescendants() do
+			hideThing(thing)
+		end
+	end
+end
+
+local function showLobbyView()
+	for thing, original in hidden do
+		if thing.Parent then
+			if thing:IsA("BasePart") or thing:IsA("Decal") then
+				thing.LocalTransparencyModifier = original
+			else
+				thing.Enabled = original
+			end
+		end
+	end
+	hidden = {}
+end
+
 function CameraController.start()
 	-- Lets us turn off walking while you're watching your room
 	local ok, playerModule = pcall(function()
@@ -70,7 +119,8 @@ function CameraController.start()
 		local camera = Workspace.CurrentCamera
 		local room, spectating = roomToShow()
 		if room then
-			if not inRoom then
+			local starting = not inRoom
+			if starting then
 				inRoom = true
 				if controls then
 					controls:Disable()
@@ -79,8 +129,10 @@ function CameraController.start()
 			camera.CameraType = Enum.CameraType.Scriptable
 			camera.FieldOfView = ROOM_FOV
 			camera.CFrame = roomView(room, camera.ViewportSize, spectating)
+			hideLobbyView(starting)
 		elseif inRoom then
 			inRoom = false
+			showLobbyView()
 			if controls then
 				controls:Enable()
 			end

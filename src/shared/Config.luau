@@ -169,28 +169,45 @@ function Config.formatCash(cash)
 	return "$" .. Config.formatScore(cash * Config.CASH_DISPLAY_MULTIPLIER)
 end
 
--- The rooms stand in a ring around the lobby, side by side with their back walls
--- touching, and their open fronts (and cameras) facing out into the sky. There's a gap
--- between the lobby's edge and the ring, so you can see the void below.
+-- The rooms stand in a ring around the lobby, side by side with the corners of their
+-- open fronts touching, and the fronts facing the lobby so you can watch every room from
+-- there. There's a gap between the lobby's edge and the ring, so you can see the void below.
+-- (The camera for a room looks across the lobby, so the lobby is hidden on your own
+-- screen while you're in a round: see client/CameraController.)
 -- How far a room's middle is from the middle of the lobby:
 local ROOM_HALF_WIDTH = (Config.ROOM_SIZE.X + 2 * Config.WALL_THICKNESS) / 2
-local RING_INSIDE = ROOM_HALF_WIDTH / math.tan(math.pi / Config.ROOM_COUNT) -- where the back walls meet
+local RING_INSIDE = ROOM_HALF_WIDTH / math.tan(math.pi / Config.ROOM_COUNT) -- where the fronts meet
 Config.ROOM_RING_RADIUS = RING_INSIDE + Config.WALL_THICKNESS + Config.ROOM_SIZE.Z / 2
 Config.ROOM_FLOOR_Y = 2
 
+-- The angle (in radians, 0 = toward +Z) of room `index` around the lobby
+local function roomAngle(index)
+	return (index - 1) / Config.ROOM_COUNT * math.pi * 2
+end
+
 -- Where room `index` is, and which way it faces. In the room's own directions
 -- (its "room space"): X runs across the room, Y is up, and +Z points out of the
--- open front toward the camera. The position is the middle of its floor.
+-- open front toward the camera (and the lobby). The position is the middle of its floor.
 function Config.getRoomCFrame(index)
-	local angle = (index - 1) / Config.ROOM_COUNT * math.pi * 2
+	local angle = roomAngle(index)
 	local center = Config.LOBBY_POSITION
-	local position = Vector3.new(
-		center.X + math.sin(angle) * Config.ROOM_RING_RADIUS,
-		Config.ROOM_FLOOR_Y,
-		center.Z + math.cos(angle) * Config.ROOM_RING_RADIUS
-	)
-	-- Looking at the lobby means the back (-Z) faces in and the front (+Z) faces out
-	return CFrame.lookAt(position, Vector3.new(center.X, Config.ROOM_FLOOR_Y, center.Z))
+	local outward = Vector3.new(math.sin(angle), 0, math.cos(angle))
+	local position = Vector3.new(center.X, Config.ROOM_FLOOR_Y, center.Z) + outward * Config.ROOM_RING_RADIUS
+	-- Looking away from the lobby means the back (-Z) faces out and the front (+Z) faces in
+	return CFrame.lookAt(position, position + outward)
+end
+
+-- Which room a spot in the world is in (or nil if it isn't in one)
+function Config.roomAt(position)
+	local center = Config.LOBBY_POSITION
+	local flat = Vector3.new(position.X - center.X, 0, position.Z - center.Z)
+	local distance = flat.Magnitude
+	if distance < RING_INSIDE - 2 or distance > RING_INSIDE + Config.ROOM_SIZE.Z + 2 * Config.WALL_THICKNESS + 2 then
+		return nil
+	end
+	local step = math.pi * 2 / Config.ROOM_COUNT
+	local angle = math.atan2(flat.X, flat.Z) % (math.pi * 2)
+	return math.floor(angle / step + 0.5) % Config.ROOM_COUNT + 1
 end
 
 -- Center of room `index`'s floor
