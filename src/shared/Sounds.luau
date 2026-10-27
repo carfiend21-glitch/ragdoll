@@ -1,9 +1,13 @@
--- Every sound in the game. They all come from Roblox's free sound library
--- (Roblox, ProSoundEffects and APMOfficial), so they work in any game.
+-- Every sound in the game. All but the laser come from Roblox's official free sound
+-- library (Roblox, ProSoundEffects and APMOfficial), so they work in any game.
 -- `volume` is kept gentle on purpose, and `vary` randomly nudges the pitch a little
 -- each time so repeated sounds (like the machine gun) don't get grating.
+-- `length` = the most seconds it plays before fading out, so a sound never drags on
+-- past its weapon (a machine gun fires every 0.18 s; a laser every 2.5 s). Sounds
+-- without one play for up to 4 seconds.
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(script.Parent.Config)
@@ -15,45 +19,45 @@ Sounds.LIST = {
 	-- Arrows sound like a Minecraft bow: a light "fwip" when fired (no crossbow clunk),
 	-- a soft thunk into the noob, and a sharper "tk" into the wall. (Minecraft's own sounds
 	-- belong to Mojang and can't be used, so these are the closest free library sounds.)
-	ArrowShot = { id = 9113166206, volume = 0.5, vary = 0.1 }, -- "Arrow Out Whooshing Pass By 1"
-	ArrowHit = { id = 9113165572, volume = 0.7, vary = 0.1 }, -- "Arrow In Landing In Mud 14"
-	ArrowWall = { id = 9113161406, volume = 0.4, vary = 0.1 }, -- "Arrow In And Hit 13"
-	Spring = { id = 12222124, volume = 0.6, vary = 0.08 },
+	ArrowShot = { id = 9113166206, volume = 0.5, vary = 0.1, length = 0.6 }, -- "Arrow Out Whooshing Pass By 1"
+	ArrowHit = { id = 9113165572, volume = 0.7, vary = 0.1, length = 0.8 }, -- "Arrow In Landing In Mud 14"
+	ArrowWall = { id = 9113161406, volume = 0.4, vary = 0.1, length = 0.6 }, -- "Arrow In And Hit 13"
+	Spring = { id = 12222124, volume = 0.6, vary = 0.08, length = 0.8 },
 	-- Land mine: the classic "click... BOOM". A metal click as it's armed and when it's
 	-- stepped on, then a deep blast that throws up dirt.
 	MineClick = { id = 9116543627, volume = 0.7, vary = 0.04 }, -- "Metal Click 1"
-	MineBlast = { id = 9114086405, volume = 0.8, vary = 0.06, lifetime = 5 }, -- "Dirt Explosion 1"
+	MineBlast = { id = 9114086405, volume = 0.8, vary = 0.06, length = 4 }, -- "Dirt Explosion 1"
 	-- Grenade: it clatters as it's dropped in, the pin pings out, it beeps faster and
 	-- faster (and a little higher) as the fuse runs down, then a big heavy boom with
 	-- bits of shrapnel whizzing past
-	GrenadeDrop = { id = 9114659492, volume = 0.6, vary = 0.06 }, -- "Grenade Across Floor 1"
+	GrenadeDrop = { id = 9114659492, volume = 0.6, vary = 0.06, length = 1 }, -- "Grenade Across Floor 1"
 	PinPull = { id = 9114659662, volume = 0.6, vary = 0.05 },
-	GrenadeBeep = { id = 9117060347, volume = 0.55, vary = 0, lifetime = 0.5 }, -- "Nasa Transmission Beep 1" (short clean tone)
-	GrenadeBlast = { id = 9117876706, volume = 0.85, vary = 0.05, lifetime = 6.5 }, -- "Power Explosions Big Heavy Searing Boom 2"
+	GrenadeBeep = { id = 9117060347, volume = 0.55, vary = 0, length = 0.35 }, -- "Nasa Transmission Beep 1" (short clean tone)
+	GrenadeBlast = { id = 9117876706, volume = 0.85, vary = 0.05, length = 6.5 }, -- "Power Explosions Big Heavy Searing Boom 2"
 	Shrapnel = { id = 9119122634, volume = 0.5, vary = 0.1 }, -- "Shrapnel Whiz 1"
 	-- A sparkler's crackle, cut off when the Big TNT's 2.5 second fuse runs out
-	FuseHiss = { id = 9119380593, volume = 0.4, vary = 0.05, lifetime = 2.6 },
-	GunShot = { id = 9114729252, volume = 0.25, vary = 0.12 },
+	FuseHiss = { id = 9119380593, volume = 0.4, vary = 0.05, length = 2.5 },
+	GunShot = { id = 9114729252, volume = 0.25, vary = 0.12, length = 0.22 }, -- fires every 0.18 s
 	-- Spinning saw: a steady whir while it spins, and sharp grating bites as it cuts
 	SawSpin = { id = 9116635675, volume = 0.25, vary = 0 }, -- "Metal Grind 1" (gentle), looped
-	SawCut1 = { id = 9118775692, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 1"
-	SawCut2 = { id = 9118775709, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 2"
-	FlameBurst = { id = 9114446277, volume = 0.55, vary = 0.08 },
+	SawCut1 = { id = 9118775692, volume = 0.6, vary = 0.1, length = 0.5 }, -- "Saw Blade Sharp 1"
+	SawCut2 = { id = 9118775709, volume = 0.6, vary = 0.1, length = 0.5 }, -- "Saw Blade Sharp 2"
+	FlameBurst = { id = 9114446277, volume = 0.55, vary = 0.08, length = 0.8 }, -- each blast of flame is 0.6 s
 	-- Laser cannon: the most-favorited laser sound on all of Roblox. It's a player's
 	-- upload (public since 2020), not from the official libraries like the rest.
-	LaserShot = { id = 4571098531, volume = 0.7, vary = 0.05 }, -- "Laser Beam Sound Effect"
-	RocketLaunch = { id = 12222065, volume = 0.5, vary = 0.08 },
-	BigBoom = { id = 9114224354, volume = 0.6, vary = 0.05, lifetime = 7 },
+	LaserShot = { id = 4571098531, volume = 0.7, vary = 0.05, length = 0.9 }, -- "Laser Beam Sound Effect"
+	RocketLaunch = { id = 12222065, volume = 0.5, vary = 0.08, length = 1.5 },
+	BigBoom = { id = 9114224354, volume = 0.6, vary = 0.05, length = 7 },
 	-- The noob
 	-- The noob crashing into things: a different sound for each surface (see Arena)
-	FloorHit = { id = 9113470969, volume = 0.65, vary = 0.1 }, -- "Body Fall Heavy Rustle 3" (on concrete)
-	WallHit = { id = 9113535217, volume = 0.65, vary = 0.1 }, -- "Body Slam Low End Thump 2"
-	CeilingHit = { id = 9113535176, volume = 0.6, vary = 0.1 }, -- "Body Slam Low End Thump 1"
-	Thud = { id = 9113480915, volume = 0.5, vary = 0.15 },
-	BodyImpact = { id = 9113525391, volume = 0.5, vary = 0.12 },
-	Punch = { id = 9117969687, volume = 0.45, vary = 0.12 },
+	FloorHit = { id = 9113470969, volume = 0.65, vary = 0.1, length = 0.9 }, -- "Body Fall Heavy Rustle 3" (on concrete)
+	WallHit = { id = 9113535217, volume = 0.65, vary = 0.1, length = 0.9 }, -- "Body Slam Low End Thump 2"
+	CeilingHit = { id = 9113535176, volume = 0.6, vary = 0.1, length = 0.9 }, -- "Body Slam Low End Thump 1"
+	Thud = { id = 9113480915, volume = 0.5, vary = 0.15, length = 0.8 },
+	BodyImpact = { id = 9113525391, volume = 0.5, vary = 0.12, length = 0.8 },
+	Punch = { id = 9117969687, volume = 0.45, vary = 0.12, length = 0.35 }, -- also each bullet hit
 	Splat = { id = 12222152, volume = 0.6, vary = 0.1 },
-	WetSplat = { id = 9113663393, volume = 0.5, vary = 0.1 },
+	WetSplat = { id = 9113663393, volume = 0.5, vary = 0.1, length = 0.9 },
 	-- Placing weapons
 	Place = { id = 9125665716, volume = 0.4, vary = 0.08 },
 	-- Menus and the round
@@ -81,6 +85,7 @@ Sounds.LIST = {
 -- in front of it, across the lobby)
 local HEARING_FULL = 100
 local HEARING_MAX = 110
+local FADE_OUT = 0.12 -- seconds a sound takes to fade away when it hits its `length`
 -- How loud the rooms are while you're in the lobby (they're all around it)
 local LOBBY_ROOM_VOLUME = 0.25
 
@@ -148,7 +153,11 @@ function Sounds.playAt(name, position, volumeScale)
 	spot.WorldPosition = position
 	sound.Parent = spot
 	sound:Play()
-	task.delay(info.lifetime or 4, function()
+	-- Never longer than its `length`: then it fades out quickly (no click) and is cleaned up
+	local length = info.length or 4
+	task.delay(length, function()
+		TweenService:Create(sound, TweenInfo.new(FADE_OUT), { Volume = 0 }):Play()
+		task.wait(FADE_OUT)
 		spot:Destroy()
 	end)
 	return sound
