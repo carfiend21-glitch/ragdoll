@@ -484,6 +484,16 @@ function PlayerData.addSequenceWin(player)
 	return profile.sequenceWins
 end
 
+-- Their saved wins, best run and best-sequence votes (nil if their data didn't load),
+-- so the lobby leaderboards can be brought up to date when they join
+function PlayerData.leaderboardStats(player)
+	local profile = profiles[player]
+	if not profile or not profile.canSave then
+		return nil
+	end
+	return { wins = profile.wins, bestRun = profile.bestRun, sequenceWins = profile.sequenceWins }
+end
+
 -- Returns true if `damage` beats their best ever run
 function PlayerData.recordRun(player, damage)
 	local profile = profiles[player]

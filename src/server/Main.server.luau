@@ -162,6 +162,12 @@ local function onPlayerAdded(player)
 			end
 		end)
 		ShopService.watch(player) -- their title and trail
+		-- Make sure the lobby leaderboards have their saved scores (a save to a board
+		-- can fail, and a board only hears about a run when it beats their best)
+		local stats = PlayerData.leaderboardStats(player)
+		if stats then
+			Leaderboards.syncPlayer(player, stats)
+		end
 	end
 end
 Players.PlayerAdded:Connect(onPlayerAdded)

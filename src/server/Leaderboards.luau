@@ -85,6 +85,34 @@ function Leaderboards.recordRun(player, damage)
 	end)
 end
 
+-- Raises a player's score on a board to `value` (never lowers it)
+local function raise(store, player, value, what)
+	if not store or value <= 0 then
+		return
+	end
+	local ok, err = pcall(store.UpdateAsync, store, tostring(player.UserId), function(old)
+		if old and old >= value then
+			return nil -- already up to date
+		end
+		return value
+	end)
+	if ok then
+		changed[store] = true
+	else
+		warn(("[Leaderboards] Couldn't sync %s: %s"):format(what, tostring(err)))
+	end
+end
+
+-- A player joined: puts their saved scores on the boards, in case a board missed them
+-- `stats` = { wins, bestRun, sequenceWins } from PlayerData.leaderboardStats
+function Leaderboards.syncPlayer(player, stats)
+	task.spawn(function()
+		raise(winsStore, player, stats.wins, "wins")
+		raise(runStore, player, stats.bestRun, "best run")
+		raise(sequenceStore, player, stats.sequenceWins, "best sequences")
+	end)
+end
+
 -- Fills a board's rows (TextLabels) with the top players from its store
 local function fill(board)
 	local store, rows = board.store, board.rows
