@@ -48,6 +48,41 @@ Sounds.LIST = {
 	LaserShot = { id = 4571098531, volume = 0.7, vary = 0.05, length = 0.9 }, -- "Laser Beam Sound Effect"
 	RocketLaunch = { id = 12222065, volume = 0.5, vary = 0.08, length = 1.5 },
 	BigBoom = { id = 9114224354, volume = 0.6, vary = 0.05, length = 7 },
+	-- Spike strip: a quick stab
+	SpikeStab = { id = 9125619840, volume = 0.6, vary = 0.1, length = 0.5 }, -- "Knife Slicing Flesh Stabbing Many Rapid Chop"
+	-- Big fan: a steady whir while it blows, looped
+	FanWhir = { id = 9117174637, volume = 0.35, vary = 0 }, -- "Oscillating Fan 2"
+	-- Boxing glove: the spring whooshing out, and the punch landing
+	GloveRelease = { id = 9120729005, volume = 0.5, vary = 0.08, length = 0.6 }, -- "Whoosh Heavy Punches 4"
+	GlovePunch = { id = 9113576289, volume = 0.7, vary = 0.08, length = 0.8 }, -- "Boxing Hits 18"
+	-- Bear trap: a metal clang as the jaws slam shut, and a crunch
+	TrapSnap = { id = 9116539758, volume = 0.7, vary = 0.05, length = 1.2 }, -- "Metal Clang 2"
+	BoneCrunch = { id = 9113546795, volume = 0.6, vary = 0.08, length = 1 }, -- "Bone Cracks 3"
+	ShotgunBlast = { id = 9112910526, volume = 0.55, vary = 0.06, length = 1.2 }, -- "12 Gauge Shotgun 4"
+	HarpoonShot = { id = 9113059983, volume = 0.6, vary = 0.08, length = 1 }, -- "Air Chuff Hydraulic Pneumatic Air Burst 5"
+	CannonFire = { id = 3149249837, volume = 0.6, vary = 0.06, length = 2.2 }, -- "Cannon_Explode" (Roblox)
+	TeslaZap = { id = 9114277528, volume = 0.55, vary = 0.1, length = 1 }, -- "Electric Zaps 7"
+	GravityFlip = { id = 9117883683, volume = 0.5, vary = 0.05, length = 1.5 }, -- "Power Up And Down 4"
+	FreezeShot = { id = 9120984892, volume = 0.6, vary = 0.06, length = 0.9 }, -- "Zap High Pitch Glassy Reversed Whoosh 9"
+	IceCrack = { id = 9114865174, volume = 0.6, vary = 0.08, length = 1 }, -- "Ice Hammer Hitting Large Chunks 4"
+	AcidSpray = { id = 9119992315, volume = 0.5, vary = 0.08, length = 1 }, -- "Termite Sprays Acid Hissing Bursts 1"
+	AcidSizzle = { id = 9119165930, volume = 0.5, vary = 0.08, length = 1.5 }, -- "Sizzle Short And Explosive Sear 7"
+	Thunder = { id = 9120020523, volume = 0.6, vary = 0.06, length = 2.5 }, -- "Thunder Lightning 7"
+	LightningCrack = { id = 9116272234, volume = 0.5, vary = 0.08, length = 1 }, -- "Lightning Flashes Quick Electrical Bursts 4"
+	-- Wrecking ball: a heavy whoosh each swing, and a chain-and-metal smash when it hits
+	SwingWhoosh = { id = 9120729339, volume = 0.4, vary = 0.08, length = 0.8 }, -- "Whoosh Heavy Punches 7"
+	ChainSmash = { id = 9113764330, volume = 0.65, vary = 0.08, length = 1.5 }, -- "Chains And Metal Impacts 4"
+	HammerSlam = { id = 9125672739, volume = 0.75, vary = 0.06, length = 1.2 }, -- "Metal Impact Sledge Hammer Hits On 5 Ft I- B"
+	RailgunCharge = { id = 9125973342, volume = 0.5, vary = 0, length = 1.3 }, -- "Spaceship Blast High Pitch Energy Charge Up"
+	RailgunFire = { id = 9116230964, volume = 0.65, vary = 0.05, length = 1.2 }, -- "Laser Cannon 107"
+	Bomblet = { id = 9114363084, volume = 0.55, vary = 0.12, length = 2 }, -- "Explosion Soft Crack 2"
+	MinigunLoop = { id = 9116921621, volume = 0.35, vary = 0 }, -- "Minigun Metallic Reflections 3", looped while firing
+	MissileLaunch = { id = 9125693294, volume = 0.45, vary = 0.1, length = 1 }, -- "Missile Pass Bys Rizzy Buzzy Synth Fly By Zo"
+	MissileBlast = { id = 9114363424, volume = 0.5, vary = 0.1, length = 2 }, -- "Explosion Soft Crack 10"
+	-- Black hole: a deep evil throb while it pulls, then a huge space boom when it collapses
+	BlackHoleHum = { id = 9119820777, volume = 0.6, vary = 0 }, -- "Synth Rumble Slight Chugging Throb Evil 2", looped
+	BlackHoleBoom = { id = 9126050371, volume = 0.7, vary = 0.04, length = 5 }, -- "Synth Blast Space Explosion Reverberant Tail"
+	NukeBlast = { id = 9114364308, volume = 0.8, vary = 0.03, length = 7 }, -- "Explosive Boom 6"
 	-- The noob
 	-- The noob crashing into things: a different sound for each surface (see Arena)
 	FloorHit = { id = 9113470969, volume = 0.65, vary = 0.1, length = 0.9 }, -- "Body Fall Heavy Rustle 3" (on concrete)

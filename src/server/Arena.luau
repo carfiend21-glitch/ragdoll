@@ -25,7 +25,9 @@ local BURN_TICK = 0.3 -- seconds between burn damage
 local BURN_DAMAGE = 3
 local AIRBORNE_HEIGHT = 3.5 -- every body part must be this high off the floor to count as flying
 -- Weapons that make their own sound when placed (the rest use "Place")
-local PLACE_SOUNDS = { Mine = "MineClick", Grenade = "GrenadeDrop" }
+local PLACE_SOUNDS = { Mine = "MineClick", Grenade = "GrenadeDrop", BearTrap = "MineClick" }
+-- While the noob is frozen solid (Freeze Ray), every body part takes this much more damage
+local ICED_BONUS = 1.5
 
 local Arena = {}
 Arena.__index = Arena
@@ -132,6 +134,7 @@ function Arena:respawnNoob()
 	self.lastVelocities = {} -- [body part] = its speed last frame
 	self.lastImpactTimes = {} -- [body part] = when it last took crash damage
 	self.burnTimer = 0
+	self.icedUntil = nil -- when the noob thaws out (Freeze Ray)
 end
 
 function Arena:_setInRun(inRun)
@@ -150,7 +153,8 @@ function Arena:_endRun()
 		self:_recordRun()
 		self:_clearProjectiles()
 		for _, item in self.items do
-			if item.broken then
+			-- (a sprung bear trap still holding on is used up too)
+			if item.broken or item.uses <= 0 then
 				self:removeItem(item)
 			else
 				Items.resetForNextRun(item)
@@ -319,11 +323,20 @@ function Arena:takeOutItem(player, itemId)
 	end
 end
 
--- Sets a body part on fire
-function Arena:ignite(part, seconds)
-	if self.noob:ignite(part, seconds) and self.active and self.owner then
+-- Sets a body part on fire (`acid` = green acid instead, which hurts the same)
+function Arena:ignite(part, seconds, acid)
+	if self.noob:ignite(part, seconds, acid) and self.active and self.owner then
 		self.achievements.onIgnite(self.owner, self)
 	end
+end
+
+-- Freezes the noob solid for `seconds` (Freeze Ray): it takes extra damage until it thaws
+function Arena:freezeNoob(seconds)
+	if self.noob.dead then
+		return
+	end
+	self.icedUntil = math.max(self.icedUntil or 0, os.clock() + seconds)
+	self.noob:setIced(true)
 end
 
 -- PLAY (true) or STOP (false). While stopped, the noob, arrows, rockets and fuses are frozen.
@@ -380,6 +393,9 @@ function Arena:hit(source, item, hits)
 	end
 	local inCombo = now - self.lastComboTime <= Config.COMBO_WINDOW
 	local multiplier = if inCombo then math.min(1 + 0.25 * (self.combo - 1), Config.MAX_COMBO_MULTIPLIER) else 1
+	if self.noob.iced then
+		multiplier *= ICED_BONUS -- frozen solid: everything hurts more
+	end
 
 	-- What happened to each body part, sent to the player's screen
 	local reports = {}
@@ -472,7 +488,7 @@ function Arena:_playHitSounds(source, reports)
 		if hard > 0.5 then
 			Sounds.playAt("BodyImpact", biggest.position, hard * 0.7)
 		end
-	elseif source == "MachineGun" then
+	elseif source == "MachineGun" or source == "Minigun" or source == "Shotgun" then
 		local now = os.clock()
 		if now - (self.lastBulletSound or 0) > BULLET_SOUND_GAP then
 			self.lastBulletSound = now
@@ -633,6 +649,10 @@ function Arena:step(dt)
 	if self.running then
 		self:_stepFire(dt)
 		self:_stepAirTime(dt)
+	end
+	if self.icedUntil and os.clock() >= self.icedUntil then
+		self.icedUntil = nil
+		self.noob:setIced(false)
 	end
 	for _, item in self.items do
 		Items.step(self, item, dt)

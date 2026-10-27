@@ -26,6 +26,10 @@ end
 CameraController.start()
 Spectate.start()
 local buckShop = BuckShop.start()
+-- Clicking a locked exclusive weapon opens the shop right on it
+hud.onOpenShop = function(weaponId)
+	buckShop.openOnWeapon(weaponId)
+end
 
 Remotes.DataSync.OnClientEvent:Connect(function(data)
 	hud:setData(data)

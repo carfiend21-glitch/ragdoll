@@ -489,16 +489,19 @@ local function flame(cell, position, direction)
 	end
 end
 
--- A laser beam (a white-hot core in a red glow) that flashes, thins out and fades,
--- with a burst of light where it hits
-local function laser(cell, from, to)
+-- A beam (a white-hot core in a glow) that flashes, thins out and fades, with a burst
+-- of light where it hits. Red for the laser cannon; the freeze ray, railgun, tesla coil
+-- and storm cloud send their own `color` and `width`.
+local function laser(cell, from, to, color, width)
+	color = color or Color3.fromRGB(255, 30, 30)
+	width = width or 0.7
 	local seconds = 0.35 / currentSpeed
 	local length = (to - from).Magnitude
 	local cframe = CFrame.lookAt(from:Lerp(to, 0.5), to)
-	local glow = newPart(cell.viewport, Vector3.new(0.7, 0.7, length), cframe, Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
+	local glow = newPart(cell.viewport, Vector3.new(width, width, length), cframe, color, Enum.Material.Neon)
 	glow.Transparency = 0.45
-	local core = newPart(cell.viewport, Vector3.new(0.22, 0.22, length), cframe, Color3.fromRGB(255, 225, 225), Enum.Material.Neon)
-	local flash = newPart(cell.viewport, Vector3.one * 0.6, CFrame.new(to), Color3.fromRGB(255, 120, 90), Enum.Material.Neon, Enum.PartType.Ball)
+	local core = newPart(cell.viewport, Vector3.new(width * 0.3, width * 0.3, length), cframe, color:Lerp(Color3.new(1, 1, 1), 0.85), Enum.Material.Neon)
+	local flash = newPart(cell.viewport, Vector3.one * 0.6, CFrame.new(to), color:Lerp(Color3.new(1, 1, 1), 0.4), Enum.Material.Neon, Enum.PartType.Ball)
 	for _, part in { glow, core } do
 		TweenService:Create(part, TweenInfo.new(seconds), { Size = Vector3.new(0, 0, length), Transparency = 1 }):Play()
 	end
@@ -537,7 +540,7 @@ local function handleEvent(cell, event)
 	elseif kind == "flame" then
 		flame(cell, event.position, event.direction)
 	elseif kind == "laser" then
-		laser(cell, event.position, event.target)
+		laser(cell, event.position, event.target, event.color, event.width)
 	elseif kind == "play" then
 		cell.running = true
 	elseif kind == "pause" then

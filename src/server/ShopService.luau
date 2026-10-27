@@ -99,12 +99,22 @@ local function equip(player, item)
 	end
 end
 
+-- Does the player own this shop item already? (A weapon counts if they've unlocked it
+-- any way at all, apart from renting it.)
+local function owns(player, item)
+	if item.kind == "unlock" then
+		return PlayerData.ownsWeapon(player, item.weapon)
+	end
+	return PlayerData.ownsShopItem(player, item.id)
+end
+
 local function buy(player, id)
 	local item = ShopItems.byId[id]
 	if typeof(id) ~= "string" or not item or item.price <= 0 then
 		return
 	end
 	local name = item.name
+	local price = ShopItems.priceFor(item, os.time()) -- (the deal of the day is cheaper)
 	if item.kind == "unlock" or item.kind == "rent" then
 		if PlayerData.ownsWeapon(player, item.weapon) then
 			Remotes.Notify:FireClient(player, "ALREADY UNLOCKED", "You already have the " .. name .. ".")
@@ -114,21 +124,40 @@ local function buy(player, id)
 			Remotes.Notify:FireClient(player, "ALREADY RENTED", "It's yours until the end of the next round you place it in.")
 			return
 		end
+	elseif item.kind == "bundle" then
+		-- Only pay for the part of the bundle you don't have yet
+		price = ShopItems.bundlePrice(item, function(content)
+			return owns(player, content)
+		end)
+		if price <= 0 then
+			Remotes.Notify:FireClient(player, "ALREADY OWNED", "You already have everything in the " .. name .. " bundle.")
+			return
+		end
 	elseif PlayerData.ownsShopItem(player, id) then
 		return
 	end
-	if not PlayerData.buyShopItem(player, id) then
-		Remotes.Notify:FireClient(player, "NOT ENOUGH NOOB BUCKS", ("The %s costs %d."):format(name, item.price))
+	if not PlayerData.buyShopItem(player, id, price) then
+		Remotes.Notify:FireClient(player, "NOT ENOUGH NOOB BUCKS", ("The %s costs %d."):format(name, price))
 		return
 	end
 	if ShopItems.defaults[item.category] then
 		equip(player, item) -- wear it straight away
+	elseif item.kind == "bundle" then
+		-- Put on the looks that came in it
+		for _, contentId in item.contents do
+			local content = ShopItems.byId[contentId]
+			if ShopItems.defaults[content.category] then
+				equip(player, content)
+			end
+		end
+		Remotes.DataSync:FireClient(player, PlayerData.getSyncData(player))
 	else
 		Remotes.DataSync:FireClient(player, PlayerData.getSyncData(player))
 	end
 	local subtitle = if item.kind == "rent"
 		then "Use it for one round: it lasts until the end of the round you place it in."
 		elseif item.kind == "unlock" then "It's on your weapon bar now."
+		elseif item.kind == "bundle" then "Everything in it is yours!"
 		else "Equipped!"
 	Remotes.Notify:FireClient(player, "🛍️ " .. name:upper(), subtitle)
 end

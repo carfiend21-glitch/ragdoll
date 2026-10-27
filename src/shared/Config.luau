@@ -203,14 +203,17 @@ function Config.getRoomOrigin(index)
 end
 
 -- Keeps a weapon of `size` inside room `index`, on the room's middle plane.
--- Floor weapons get snapped down onto the floor. Returns a world position.
-function Config.clampToRoom(index, worldPosition, size, onFloor)
+-- Floor weapons get snapped down onto the floor, ceiling weapons up against the
+-- ceiling. Returns a world position.
+function Config.clampToRoom(index, worldPosition, size, onFloor, onCeiling)
 	local room = Config.getRoomCFrame(index)
 	local roomSize = Config.ROOM_SIZE
 	local half = size / 2
 	local relative = room:PointToObjectSpace(worldPosition)
 	local x = math.clamp(relative.X, -roomSize.X / 2 + half.X, roomSize.X / 2 - half.X)
-	local y = if onFloor then half.Y else math.clamp(relative.Y, half.Y, roomSize.Y - half.Y)
+	local y = if onFloor then half.Y
+		elseif onCeiling then roomSize.Y - half.Y
+		else math.clamp(relative.Y, half.Y, roomSize.Y - half.Y)
 	return room:PointToWorldSpace(Vector3.new(x, y, 0))
 end
 
@@ -246,7 +249,7 @@ function Config.placementFor(index, weapon, worldPosition)
 	if weapon.anySurface then
 		return Config.snapToSurface(index, worldPosition, weapon.size)
 	end
-	local position = Config.clampToRoom(index, worldPosition, weapon.size, weapon.onFloor)
+	local position = Config.clampToRoom(index, worldPosition, weapon.size, weapon.onFloor, weapon.onCeiling)
 	return CFrame.new(position) * Config.getRoomCFrame(index).Rotation
 end
 

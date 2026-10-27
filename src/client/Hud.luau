@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Achievements = require(Shared.Achievements)
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local ShopItems = require(Shared.ShopItems)
 local Sounds = require(Shared.Sounds)
 local Weapons = require(Shared.Weapons)
 
@@ -128,6 +129,7 @@ function Hud.new()
 	self.inRun = false -- has PLAY been pressed since the last restart (weapons locked)
 	self.selected = nil
 	self.onWeaponClicked = nil -- set by Main: function(weaponId)
+	self.onOpenShop = nil -- set by Main: function(weaponId), opens the Noob Buck shop on that weapon
 	self.toastQueue = {}
 	self.hintHoldUntil = 0
 	self.comboHideAt = 0
@@ -266,6 +268,8 @@ function Hud:_buildTopBar()
 		Text = "",
 		Parent = self.topContent,
 	})
+	-- One line that shrinks to fit (wrapping a long name onto a second line made it tiny)
+	self.roomLabel.TextWrapped = false
 	self.timer = text({
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 4),
@@ -377,9 +381,13 @@ function Hud:_buildBottomBar()
 		Text = "▶ PLAY",
 		Parent = self.weaponHolder,
 	}, { rounded(8), padding(10), outline(3) })
+	-- The weapons, from cheapest on the left to most expensive on the right, with an arrow
+	-- at each end to scroll through them (dragging, swiping and the mouse wheel work too)
+	local arrowWidth = 30
+	local stripLeft = 124 + arrowWidth + 4
 	local strip = create("ScrollingFrame", {
-		Position = UDim2.fromOffset(124, 0),
-		Size = UDim2.new(1, -124, 1, 0),
+		Position = UDim2.fromOffset(stripLeft, 0),
+		Size = UDim2.new(1, -stripLeft - arrowWidth - 4, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollingDirection = Enum.ScrollingDirection.X,
@@ -396,6 +404,40 @@ function Hud:_buildBottomBar()
 			Padding = UDim.new(0, 6),
 		}),
 	})
+	self.weaponStrip = strip
+	local function arrow(direction)
+		local arrowButton = button({
+			AnchorPoint = Vector2.new(if direction < 0 then 0 else 1, 0.5),
+			Position = if direction < 0 then UDim2.new(0, 124, 0.5, 0) else UDim2.new(1, 0, 0.5, 0),
+			Size = UDim2.fromOffset(arrowWidth, 74),
+			BackgroundColor3 = DARK,
+			Font = TITLE_FONT,
+			Text = if direction < 0 then "◀" else "▶",
+			Parent = self.weaponHolder,
+		}, { rounded(8), padding(5), outline(2) })
+		arrowButton.Activated:Connect(function()
+			Sounds.playUI("Click")
+			self:_scrollWeapons(direction)
+		end)
+		return arrowButton
+	end
+	self.scrollLeft = arrow(-1)
+	self.scrollRight = arrow(1)
+	-- The mouse wheel scrolls the bar sideways
+	strip.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			self:_scrollWeapons(if input.Position.Z > 0 then -1 else 1)
+		end
+	end)
+	strip:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		self:_updateScrollArrows()
+	end)
+	strip:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(function()
+		self:_updateScrollArrows()
+	end)
+	strip:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function()
+		self:_updateScrollArrows()
+	end)
 	self.playButton.Activated:Connect(function()
 		self:_togglePlay()
 	end)
@@ -462,6 +504,17 @@ function Hud:_buildBottomBar()
 			TextStrokeTransparency = 1,
 			Parent = weaponButton,
 		}, { rounded(8), padding(14) })
+		-- A gold star on the exclusive (Noob Buck / Robux) weapons, so they stand out
+		if weapon.exclusive then
+			text({
+				Position = UDim2.fromOffset(2, 1),
+				Size = UDim2.fromOffset(18, 18),
+				Text = "⭐",
+				TextStrokeTransparency = 1,
+				ZIndex = 3,
+				Parent = weaponButton,
+			})
+		end
 		weaponButton.Activated:Connect(function()
 			Sounds.playUI("Click")
 			self:_onWeaponButton(weapon)
@@ -846,7 +899,7 @@ function Hud:_refresh()
 	for _, frame in { self.topBar, self.bottomBar, self.sidePanel, self.roomArea } do
 		frame.Visible = inRoom
 	end
-	self.roomLabel.Text = ("ROOM %d: %s"):format(room, player.DisplayName)
+	self:_updateRoomLabel()
 	self.timer.Text = if phase == "Round"
 		then ("⏱ %d:%02d"):format(timeLeft // 60, timeLeft % 60)
 		else "ROUND IS OVER"
@@ -865,6 +918,19 @@ function Hud:_refresh()
 	self.achievementList.Parent = if inRoom then self.listHolder else self.modalBody
 	if inRoom then
 		self.modal.Visible = false
+	end
+end
+
+-- "ROOM 3: name   2/8 WEAPONS" in the top bar. Only this writes it: two places used to
+-- write different versions of it, so it flickered back and forth every second.
+function Hud:_updateRoomLabel()
+	local room = player:GetAttribute("Room") or 0
+	local label = if room > 0
+		then ("ROOM %d: %s   %d/%d WEAPONS"):format(room, player.DisplayName, self.placedTotal or 0, Config.MAX_ITEMS_PER_ROOM)
+		else ""
+	-- Only set it when it changes, so the text never jumps around
+	if self.roomLabel.Text ~= label then
+		self.roomLabel.Text = label
 	end
 end
 
@@ -891,12 +957,7 @@ function Hud:_refreshHealth()
 		weaponButton.Count.Text = ("%d/%d"):format(count, limit)
 		weaponButton.Count.TextColor3 = if count >= limit then RED else WHITE
 	end
-	self.roomLabel.Text = ("ROOM %d: %s   %d/%d WEAPONS"):format(
-		roomNumber,
-		player.DisplayName,
-		total,
-		Config.MAX_ITEMS_PER_ROOM
-	)
+	self:_updateRoomLabel()
 
 	-- Keep the PLAY / STOP button, the weapon buttons and the trash can in step with the room
 	local running = room:GetAttribute("Running") == true
@@ -955,7 +1016,8 @@ function Hud:setData(data)
 		local lock = self.weaponButtons[weapon.id].Lock
 		lock.Visible = not Weapons.isUnlocked(weapon, self.achievements, self.owned)
 		-- Robux-only weapons show a price tag instead of a padlock
-		lock.Text = if weapon.gamePassId and not weapon.unlockedBy then "R$" else "🔒"
+		-- Exclusive weapons show a Noob Buck, Robux-only ones a price tag, the rest a padlock
+		lock.Text = if weapon.exclusive then "💵" elseif weapon.gamePassId and not weapon.unlockedBy then "R$" else "🔒"
 	end
 	self:_refreshCash()
 
@@ -1010,19 +1072,63 @@ function Hud:_onWeaponButton(weapon)
 		return
 	end
 
-	-- Locked: offer to buy it with Robux, and/or say which achievement unlocks it
+	-- Locked: offer to buy it with Robux, and/or say which achievement unlocks it, and/or
+	-- show it in the Noob Buck shop
 	local forSale = self:_promptPurchase(weapon)
+	local unlock = ShopItems.unlockFor(weapon.id)
 	local achievement = weapon.unlockedBy and Achievements.byId[weapon.unlockedBy]
-	if achievement then
+	if weapon.exclusive then
+		if not forSale and self.onOpenShop then
+			self.onOpenShop(weapon.id)
+		end
+		self:flashHint(("⭐ The %s is an EXCLUSIVE weapon: unlock it for 💵 %d Noob Bucks%s"):format(
+			weapon.name,
+			if unlock then unlock.price else 0,
+			if forSale then " or Robux!" else "!"
+		))
+	elseif achievement then
 		self:flashHint(
 			("🔒 Get \"%s\" to unlock: %s%s"):format(
 				achievement.name,
 				achievement.description,
-				if forSale then " (or buy it now!)" else ""
+				if forSale then " (or buy it now!)"
+					elseif unlock then (" (or 💵 %d Noob Bucks in the SHOP)"):format(unlock.price)
+					else ""
 			)
 		)
 	elseif not forSale then
 		self:flashHint(("%s isn't for sale yet."):format(weapon.name))
+	end
+end
+
+-- Slides the weapon bar most of a screenful left (-1) or right (1)
+function Hud:_scrollWeapons(direction)
+	local strip = self.weaponStrip
+	-- (sizes on screen are shrunk on small screens; the scroll position isn't)
+	local scale = if self.layout then self.layout.scale else 1
+	local maxX = math.max(0, strip.AbsoluteCanvasSize.X - strip.AbsoluteWindowSize.X) / scale
+	local step = math.max(strip.AbsoluteWindowSize.X * 0.8 / scale, 78)
+	local x = math.clamp((self.scrollTarget or strip.CanvasPosition.X) + direction * step, 0, maxX)
+	self.scrollTarget = x
+	local slide = TweenService:Create(strip, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { CanvasPosition = Vector2.new(x, 0) })
+	slide.Completed:Once(function()
+		if self.scrollTarget == x then
+			self.scrollTarget = nil
+		end
+	end)
+	slide:Play()
+end
+
+-- Fades out an arrow when there's nothing more to see that way
+function Hud:_updateScrollArrows()
+	local strip = self.weaponStrip
+	local x = strip.CanvasPosition.X
+	local scale = if self.layout then self.layout.scale else 1
+	local maxX = (strip.AbsoluteCanvasSize.X - strip.AbsoluteWindowSize.X) / scale
+	for arrowButton, more in { [self.scrollLeft] = x > 1, [self.scrollRight] = x < maxX - 1 } do
+		arrowButton.BackgroundTransparency = if more then 0 else 0.6
+		arrowButton.TextTransparency = if more then 0 else 0.6
+		arrowButton.AutoButtonColor = more
 	end
 end
 
@@ -1160,6 +1266,26 @@ local SOURCE_NAMES = {
 	Flamethrower = "fire",
 	BigTNT = "TNT",
 	Laser = "laser",
+	Spikes = "spikes",
+	Fan = "fan",
+	BoxingGlove = "boxing glove",
+	BearTrap = "bear trap",
+	Shotgun = "shotgun",
+	Harpoon = "harpoon",
+	Cannon = "cannon",
+	TeslaCoil = "tesla coil",
+	GravityFlipper = "gravity flip",
+	FreezeRay = "freeze ray",
+	AcidBlaster = "acid",
+	StormCloud = "lightning",
+	WreckingBall = "wrecking ball",
+	BanHammer = "ban hammer",
+	Railgun = "railgun",
+	ClusterBomb = "cluster bomb",
+	Minigun = "minigun",
+	MissileSwarm = "missile",
+	BlackHole = "black hole",
+	MiniNuke = "NUKE",
 }
 
 -- The server tells us what each attack did to which body part

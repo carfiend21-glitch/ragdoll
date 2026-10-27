@@ -1,7 +1,8 @@
 -- Your Noob Bucks, shown in the top-right corner as the Noob Buck logo (the classic noob
--- on a green dollar bill) and "x100", and the
--- Noob Buck shop it opens: weapons to unlock early, noob skins, blood, rooms, weapon
--- finishes, titles and trails, plus Noob Buck packs to buy with Robux.
+-- on a green dollar bill) and "x100", and the Noob Buck shop it opens: the deal of the
+-- day and bundles, exclusive weapons, weapons to unlock early, 1-round trials, noob
+-- skins, blood, rooms, weapon finishes, titles and trails, plus Noob Buck packs to buy
+-- with Robux.
 -- The server checks every purchase (see server/ShopService); this is just the window.
 local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -11,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local NoobBucks = require(Shared.NoobBucks)
 local Remotes = require(Shared.Remotes)
 local ShopItems = require(Shared.ShopItems)
@@ -36,6 +38,8 @@ local RED = Color3.fromRGB(220, 50, 50)
 local COUNTER_HEIGHT = 40
 local CONFIRM_SECONDS = 3 -- how long "BUY?" waits for the second click
 local BUCKS_TAB = "Bucks"
+local FEATURED_TAB = "Featured"
+local CARD_SIZE = Vector2.new(142, 176)
 
 -- The classic room's colors, for the room previews (same as server/WorldBuilder)
 local CLASSIC_ROOM = {
@@ -193,13 +197,44 @@ local function buckPile(parent, bills)
 	end
 end
 
--- The picture at the top of each shop card
-local function preview(item, parent)
-	local area = create("Frame", { Size = UDim2.fromScale(1, 0.52), BackgroundTransparency = 1, Parent = parent })
+-- The picture at the top of each shop card (`height` = how much of the card it fills)
+local function preview(item, parent, height)
+	local area = create("Frame", { Size = UDim2.fromScale(1, height or 0.52), BackgroundTransparency = 1, Parent = parent })
 	local category = item.category
-	if category == "NoobSkin" then
+	if item.kind == "bundle" then
+		-- Everything in the bundle, side by side
+		create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0, 2),
+			Parent = area,
+		})
+		for order, id in item.contents do
+			local content = ShopItems.byId[id]
+			local cell = create("Frame", {
+				LayoutOrder = order,
+				Size = UDim2.fromScale(1 / #item.contents - 0.02, 0.9),
+				BackgroundColor3 = Color3.fromRGB(70, 74, 90),
+				Parent = area,
+			}, { rounded(6) })
+			if content.weapon then
+				WeaponIcon.create(content.weapon, cell, UDim2.fromScale(1, 1))
+			elseif content.category == "NoobSkin" then
+				miniNoob(cell, UDim2.fromScale(1, 1), nil, content)
+			else
+				text({
+					Size = UDim2.fromScale(1, 1),
+					Font = TITLE_FONT,
+					Text = if content.category == "Trail" then "🌈" else "🏷️",
+					TextStrokeTransparency = 1,
+					Parent = cell,
+				})
+			end
+		end
+	elseif category == "NoobSkin" then
 		miniNoob(area, UDim2.fromScale(1, 1), nil, item)
-	elseif category == "Weapon" then
+	elseif item.weapon then
 		WeaponIcon.create(item.weapon, area, UDim2.fromScale(1, 1))
 	elseif category == "Blood" then
 		for index = 1, 3 do
@@ -271,6 +306,40 @@ local function preview(item, parent)
 			create("UIGradient", { Color = ColorSequence.new(keypoints), Parent = bar })
 		end
 	end
+	return area
+end
+
+-- A little colored tag in a corner of a card ("NEW", "-40%")
+local function badge(parent, label, color, rightSide)
+	local tag = text({
+		AnchorPoint = Vector2.new(if rightSide then 1 else 0, 0),
+		Position = if rightSide then UDim2.new(1, -4, 0, 4) else UDim2.fromOffset(4, 4),
+		Size = UDim2.fromOffset(44, 18),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = color,
+		Font = TITLE_FONT,
+		Text = label,
+		TextStrokeTransparency = 1,
+		ZIndex = 3,
+		Parent = parent,
+	})
+	rounded(5).Parent = tag
+	return tag
+end
+
+-- "💥 ~170 dmg · $1,900" under a weapon's name: what it does, and what it costs in a round
+local function weaponStats(weaponId)
+	local weapon = Weapons.byId[weaponId]
+	return ("💥 ~%d dmg · %s"):format(weapon.damage, Config.formatCash(weapon.price))
+end
+
+-- "5h 12m" / "12m 30s"
+local function timeText(seconds)
+	seconds = math.floor(seconds)
+	if seconds >= 3600 then
+		return ("%dh %02dm"):format(seconds // 3600, seconds % 3600 // 60)
+	end
+	return ("%dm %02ds"):format(seconds // 60, seconds % 60)
 end
 
 -- The Noob Buck pack cards (bought with Robux)
@@ -327,7 +396,8 @@ end
 function BuckShop.start()
 	local self = {
 		data = { achievements = {}, ownedWeapons = {}, shopItems = {}, equipped = {}, rentals = {} },
-		cards = {}, -- { item, action (TextButton) }
+		cards = {}, -- { item, action (TextButton), dealBadge?, frame }
+		cardsById = {}, -- [item id] = the card in its own tab (for jumping to it)
 		pages = {}, -- [tab id] = ScrollingFrame
 		tabs = {}, -- [tab id] = TextButton
 		confirming = nil, -- the item waiting for its second click
@@ -376,6 +446,19 @@ function BuckShop.start()
 		Parent = counter,
 	})
 	rounded(8).Parent = shopBadge
+	-- A little red "SALE" tag on the SHOP button: there's always a deal on
+	local saleTag = text({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -8, 0, 2),
+		Size = UDim2.fromOffset(40, 16),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = RED,
+		Font = TITLE_FONT,
+		Text = "SALE",
+		TextStrokeTransparency = 1,
+		Parent = counter,
+	})
+	rounded(5).Parent = saleTag
 
 	-- Up in the top-right corner, in Roblox's top bar strip if there's room
 	-- (so it never covers the game's own menus)
@@ -453,12 +536,14 @@ function BuckShop.start()
 		Parent = window,
 	})
 
+	-- The gold tabs (Featured and Get Bucks) stand out from the rest
+	local GOLD_TABS = { [FEATURED_TAB] = true, [BUCKS_TAB] = true }
 	local function showTab(id)
 		for tabId, page in self.pages do
 			page.Visible = tabId == id
 			self.tabs[tabId].BackgroundColor3 = if tabId == id
-				then (if tabId == BUCKS_TAB then Color3.fromRGB(150, 110, 20) else BLUE)
-				else (if tabId == BUCKS_TAB then Color3.fromRGB(95, 75, 25) else CARD)
+				then (if GOLD_TABS[tabId] then Color3.fromRGB(150, 110, 20) else BLUE)
+				else (if GOLD_TABS[tabId] then Color3.fromRGB(95, 75, 25) else CARD)
 		end
 	end
 
@@ -487,7 +572,7 @@ function BuckShop.start()
 		}, {
 			if grid
 				then create("UIGridLayout", {
-					CellSize = UDim2.fromOffset(142, 176),
+					CellSize = UDim2.fromOffset(CARD_SIZE.X, CARD_SIZE.Y),
 					CellPadding = UDim2.fromOffset(10, 10),
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				})
@@ -499,60 +584,87 @@ function BuckShop.start()
 		return page
 	end
 
-	-- What a card's button says and does, given what the player has
-	local function cardState(item)
+	-- Has the player unlocked this weapon for good (not counting a rental)? And are they renting it?
+	local function weaponState(weaponId)
 		local data = self.data
+		local owned = {}
+		for _, id in data.ownedWeapons do
+			owned[id] = true
+		end
+		local rented = table.find(data.rentals, weaponId) ~= nil
+		if rented then
+			owned[weaponId] = nil -- a rental doesn't mean you own it
+		end
+		local achievements = {}
+		for _, id in data.achievements do
+			achievements[id] = true
+		end
+		return Weapons.isUnlocked(Weapons.byId[weaponId], achievements, owned), rented
+	end
+
+	-- Does the player already have this item? (like the server's check, in ShopService)
+	local function owns(item)
+		if item.kind == "unlock" then
+			return (weaponState(item.weapon))
+		end
+		return item.price == 0 or table.find(self.data.shopItems, item.id) ~= nil
+	end
+
+	-- What a card's button says and does, given what the player has.
+	-- Returns the label, its color, what clicking does, and the price right now.
+	local function cardState(item)
 		local coins = player:GetAttribute("NoobBucks") or 0
-		if item.category == "Weapon" then
-			local owned = {}
-			for _, weaponId in data.ownedWeapons do
-				owned[weaponId] = true
-			end
-			local rented = table.find(data.rentals, item.weapon) ~= nil
-			if rented then
-				owned[item.weapon] = nil -- a rental doesn't mean you own it
-			end
-			local weapon = Weapons.byId[item.weapon]
-			local achievements = {}
-			for _, id in data.achievements do
-				achievements[id] = true
-			end
-			if Weapons.isUnlocked(weapon, achievements, owned) then
-				return "UNLOCKED", GREY, nil
+		local now = os.time()
+		local price = ShopItems.priceFor(item, now)
+		local worth = item.price -- what it would cost without any discount
+		if item.weapon then
+			local unlocked, rented = weaponState(item.weapon)
+			if unlocked then
+				return "UNLOCKED", GREY, nil, price
 			elseif rented then
-				return "RENTED ✔", GREY, nil
+				return "RENTED ✔", GREY, nil, price
+			end
+		elseif item.kind == "bundle" then
+			price, worth = ShopItems.bundlePrice(item, owns)
+			if price == 0 then
+				return "OWNED ✔", GREY, nil, 0
 			end
 		else
-			local owned = item.price == 0 or table.find(data.shopItems, item.id) ~= nil
-			if owned then
-				local equipped = ShopItems.equippedItem(data.equipped, item.category)
+			if owns(item) then
+				local equipped = ShopItems.equippedItem(self.data.equipped, item.category)
 				if equipped.id == item.id then
-					return "EQUIPPED", GREY, nil
+					return "EQUIPPED", GREY, nil, price
 				end
-				return "EQUIP", BLUE, "equip"
+				return "EQUIP", BLUE, "equip", price
 			end
 		end
+		-- Cheaper than usual (the deal of the day, or a bundle): show the old price crossed out
+		local priceText = if price < worth then ("<s>%d</s> %d"):format(worth, price) else tostring(price)
 		if self.confirming == item then
-			return ("BUY? 💵 %d"):format(item.price), GOLD, "buy"
+			return "BUY? 💵 " .. priceText, GOLD, "buy", price
 		end
-		return ("💵 %d"):format(item.price), if coins >= item.price then GREEN else Color3.fromRGB(130, 50, 50), "confirm"
+		return "💵 " .. priceText, if coins >= price then GREEN else Color3.fromRGB(130, 50, 50), "confirm", price
 	end
 
 	local function refresh()
 		local coins = player:GetAttribute("NoobBucks") or 0
 		balance.Text = "💵 " .. countText(coins)
 		count.Text = countText(coins)
+		local deal = ShopItems.dealOfTheDay(os.time())
 		for _, card in self.cards do
 			local label, color = cardState(card.item)
 			card.action.Text = label
 			card.action.BackgroundColor3 = color
 			card.action.TextColor3 = if color == GOLD then INK else WHITE
+			if card.dealBadge then
+				card.dealBadge.Visible = card.item == deal
+			end
 		end
 	end
 	self.refresh = refresh
 
 	local function onCardClicked(item)
-		local _, _, action = cardState(item)
+		local _, _, action, price = cardState(item)
 		if not action then
 			return
 		end
@@ -561,10 +673,10 @@ function BuckShop.start()
 		if action == "equip" then
 			Remotes.EquipShopItem:FireServer(item.id)
 		elseif action == "confirm" then
-			if coins < item.price then
+			if coins < price then
 				-- Not enough: show them the coin packs
 				showTab(BUCKS_TAB)
-				notice.Text = ("You need %d more Noob Bucks for the %s."):format(item.price - coins, item.name)
+				notice.Text = ("You need %d more Noob Bucks for the %s."):format(price - coins, item.name)
 				return
 			end
 			-- First click asks "BUY?", the second click buys, so nobody buys by accident
@@ -582,44 +694,195 @@ function BuckShop.start()
 		refresh()
 	end
 
+	-- One shop card: a picture, the name, and a buy/equip button
+	local function buildCard(item, parent, order)
+		local card = create("Frame", { LayoutOrder = order, BackgroundColor3 = CARD, Parent = parent }, { rounded(10), outline(2) })
+		preview(item, card)
+		local weapon = item.weapon and Weapons.byId[item.weapon]
+		text({
+			Position = UDim2.new(0, 6, 0.53, 0),
+			Size = UDim2.new(1, -12, if weapon or item.kind == "bundle" then 0.14 else 0.2, 0),
+			Text = if item.kind == "rent" then item.name .. " (1 round)" else item.name,
+			Parent = card,
+		})
+		-- What a weapon does and costs in a round, or what a bundle saves
+		if weapon or item.kind == "bundle" then
+			local saving = if weapon then weaponStats(item.weapon) else nil
+			if item.kind == "bundle" then
+				local total = 0
+				for _, id in item.contents do
+					total += ShopItems.byId[id].price
+				end
+				saving = ("SAVE %d%%"):format(math.floor((1 - item.price / total) * 100 + 0.5))
+			end
+			text({
+				Position = UDim2.new(0, 6, 0.67, 0),
+				Size = UDim2.new(1, -12, 0.11, 0),
+				Text = saving,
+				TextColor3 = if item.kind == "bundle" then GOLD else Color3.fromRGB(200, 205, 220),
+				TextStrokeTransparency = 1,
+				Parent = card,
+			})
+		end
+		local action = button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -16, 0.18, 0),
+			BackgroundColor3 = GREEN,
+			RichText = true,
+			Text = "",
+			Parent = card,
+		}, { rounded(8), padding(3) })
+		action.Activated:Connect(function()
+			onCardClicked(item)
+		end)
+		if item.new then
+			badge(card, "NEW", Color3.fromRGB(40, 170, 80))
+		end
+		local dealBadge = nil
+		if item.kind ~= "bundle" and item.kind ~= "rent" and item.price >= 10 then
+			dealBadge = badge(card, ("-%d%%"):format(ShopItems.DEAL_DISCOUNT * 100), RED, true)
+			dealBadge.Visible = false
+		end
+		-- Exclusive weapons can be bought with Robux too, once their Game Pass is set up
+		if weapon and item.kind == "unlock" and weapon.gamePassId and weapon.gamePassId > 0 then
+			local robux = button({
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -4, 0, 26),
+				Size = UDim2.fromOffset(58, 20),
+				BackgroundColor3 = Color3.fromRGB(30, 140, 70),
+				Text = ("R$ %d"):format(item.robux or 0),
+				ZIndex = 3,
+				Parent = card,
+			}, { rounded(5), padding(2) })
+			robux.Activated:Connect(function()
+				Sounds.playUI("Click")
+				MarketplaceService:PromptGamePassPurchase(player, weapon.gamePassId)
+			end)
+		end
+		table.insert(self.cards, { item = item, action = action, dealBadge = dealBadge, frame = card })
+		return card
+	end
+
+	---------------------------------------------------------------------------
+	-- Featured: the deal of the day, then the bundles
+	---------------------------------------------------------------------------
+	local featured = newPage(FEATURED_TAB, "🔥 Featured", 0, false)
+	local dealHeader = text({
+		LayoutOrder = 1,
+		Size = UDim2.new(1, -8, 0, 26),
+		Font = TITLE_FONT,
+		Text = "🔥 DEAL OF THE DAY",
+		TextColor3 = GOLD,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = featured,
+	})
+	local dealRow = create("Frame", { LayoutOrder = 2, Size = UDim2.new(1, -8, 0, CARD_SIZE.Y), BackgroundTransparency = 1, Parent = featured })
+	local dealCard = nil
+	local dealItem = nil
+	local dealPitch = text({
+		Position = UDim2.fromOffset(CARD_SIZE.X + 14, 0),
+		Size = UDim2.new(1, -(CARD_SIZE.X + 14), 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
+		RichText = true,
+		Parent = dealRow,
+	})
+	create("UITextSizeConstraint", { MaxTextSize = 22, Parent = dealPitch })
+	-- Builds the deal card (again, when a new day brings a new deal)
+	local function showDeal()
+		local now = os.time()
+		local deal = ShopItems.dealOfTheDay(now)
+		if deal ~= dealItem then
+			if dealCard then
+				for index, card in self.cards do
+					if card.frame == dealCard then
+						table.remove(self.cards, index)
+						break
+					end
+				end
+				dealCard:Destroy()
+			end
+			dealItem = deal
+			dealCard = buildCard(deal, dealRow, 1)
+			dealCard.Size = UDim2.fromOffset(CARD_SIZE.X, CARD_SIZE.Y)
+			dealCard.UIStroke.Color = GOLD
+			local price = ShopItems.priceFor(deal, now)
+			dealPitch.Text = ("<b>%s</b>\nNormally 💵 %d, today only 💵 <font color=\"#FFC83C\"><b>%d</b></font>!\n\n%s"):format(
+				deal.name:upper(),
+				deal.price,
+				price,
+				if deal.weapon then Weapons.byId[deal.weapon].description else "Look the part in every round."
+			)
+			refresh()
+		end
+		dealHeader.Text = ("🔥 DEAL OF THE DAY  ·  ends in %s"):format(timeText(ShopItems.dealEndsIn(now)))
+	end
+
+	text({
+		LayoutOrder = 3,
+		Size = UDim2.new(1, -8, 0, 26),
+		Font = TITLE_FONT,
+		Text = "🎁 BUNDLES: MORE FOR LESS",
+		TextColor3 = GOLD,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = featured,
+	})
+	local bundles = create("Frame", {
+		LayoutOrder = 4,
+		Size = UDim2.new(1, -8, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Parent = featured,
+	}, {
+		create("UIGridLayout", {
+			CellSize = UDim2.fromOffset(CARD_SIZE.X, CARD_SIZE.Y),
+			CellPadding = UDim2.fromOffset(10, 10),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	local bundleOrder = 0
+	for _, item in ShopItems.list do
+		if item.kind == "bundle" then
+			bundleOrder += 1
+			buildCard(item, bundles, bundleOrder)
+		end
+	end
+
+	---------------------------------------------------------------------------
+	-- A tab for each category, then the Noob Buck packs
+	---------------------------------------------------------------------------
 	for order, category in ShopItems.CATEGORIES do
 		local page = newPage(category.id, category.icon .. " " .. category.name, order, true)
 		local cardOrder = 0
 		for _, item in ShopItems.list do
 			if item.category == category.id then
 				cardOrder += 1
-				local card = create("Frame", { LayoutOrder = cardOrder, BackgroundColor3 = CARD, Parent = page }, { rounded(10), outline(2) })
-				preview(item, card)
-				text({
-					Position = UDim2.new(0, 6, 0.54, 0),
-					Size = UDim2.new(1, -12, 0.2, 0),
-					Text = item.name,
-					Parent = card,
-				})
-				local action = button({
-					AnchorPoint = Vector2.new(0.5, 1),
-					Position = UDim2.new(0.5, 0, 1, -8),
-					Size = UDim2.new(1, -16, 0.18, 0),
-					BackgroundColor3 = GREEN,
-					Text = "",
-					Parent = card,
-				}, { rounded(8), padding(3) })
-				action.Activated:Connect(function()
-					onCardClicked(item)
-				end)
-				table.insert(self.cards, { item = item, action = action })
+				self.cardsById[item.id] = buildCard(item, page, cardOrder)
 			end
 		end
 	end
 	local bucksPage = newPage(BUCKS_TAB, "💵 Get Bucks", #ShopItems.CATEGORIES + 1, false)
 	buildPacks(bucksPage, notice)
-	showTab(ShopItems.CATEGORIES[1].id)
+	showTab(FEATURED_TAB)
+	showDeal()
 
 	counter.Activated:Connect(function()
 		Sounds.playUI("Click")
 		window.Visible = not window.Visible
 		notice.Text = ""
+		showDeal()
 		refresh()
+	end)
+	-- Keep the deal's countdown ticking while the shop is open
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if window.Visible then
+				showDeal()
+			end
+		end
 	end)
 
 	-- Keep the number up to date, with a little pop when it goes up
@@ -640,6 +903,32 @@ function BuckShop.start()
 	function self.setData(data)
 		self.data = data
 		refresh()
+	end
+
+	-- Opens the shop right on the card that unlocks a weapon (from the weapon bar)
+	function self.openOnWeapon(weaponId)
+		local item = ShopItems.unlockFor(weaponId)
+		local card = item and self.cardsById[item.id]
+		if not card then
+			return
+		end
+		window.Visible = true
+		showDeal()
+		showTab(item.category)
+		refresh()
+		notice.Text = ("Unlock the %s here, then place it from your weapon bar!"):format(item.name)
+		-- Scroll down to it, and make it flash gold for a moment
+		local page = self.pages[item.category]
+		task.defer(function()
+			page.CanvasPosition = Vector2.new(0, math.max(0, card.AbsolutePosition.Y - page.AbsolutePosition.Y + page.CanvasPosition.Y - 8))
+		end)
+		local stroke = card:FindFirstChildOfClass("UIStroke")
+		stroke.Color = GOLD
+		stroke.Thickness = 4
+		task.delay(2, function()
+			stroke.Color = INK
+			stroke.Thickness = 2
+		end)
 	end
 	return self
 end

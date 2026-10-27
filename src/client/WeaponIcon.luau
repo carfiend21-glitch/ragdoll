@@ -14,6 +14,20 @@ local VIEW = {
 	Saw = Vector3.new(0.35, 0.25, -1),
 	BouncePad = Vector3.new(0.6, 1, -0.8),
 	Mine = Vector3.new(0.6, 0.9, -0.8),
+	-- Seen the way the room camera sees them (from the front, +Z)
+	Spikes = Vector3.new(0.3, 0.45, 1),
+	BoxingGlove = Vector3.new(0.4, 0.4, 1),
+	TeslaCoil = Vector3.new(0.3, 0.25, 1),
+	GravityFlipper = Vector3.new(0.3, 0.2, 1),
+	StormCloud = Vector3.new(0.2, -0.1, 1),
+	WreckingBall = Vector3.new(0.3, 0.1, 1),
+	BanHammer = Vector3.new(0.3, 0.1, 1),
+	BlackHole = Vector3.new(0.15, 0.1, 1),
+	ClusterBomb = Vector3.new(0.3, 0.3, 1),
+	MiniNuke = Vector3.new(0.35, 0.25, 1),
+	-- Seen from above, so you can see the blades and the jaws
+	Fan = Vector3.new(0.4, 1, 0.8),
+	BearTrap = Vector3.new(0.4, 1, 0.8),
 }
 local DEFAULT_VIEW = Vector3.new(1, 0.45, -0.55)
 local FOV = 30

@@ -19,15 +19,31 @@ local BLASTS = {
 	Mine = { radius = 12, power = 65, damage = 30, bounce = 60 },
 	Grenade = { radius = 13, power = 75, damage = 35 },
 	BigTNT = { radius = 18, power = 95, damage = 45 },
+	ClusterBomb = { radius = 11, power = 70, damage = 28 },
+	-- Big enough to fill the whole room
+	MiniNuke = { radius = 40, power = 140, damage = 55 },
+	-- When the black hole collapses at the end
+	BlackHole = { radius = 14, power = 110, damage = 40 },
 }
 local ROCKET_BLAST = { radius = 11, power = 80, damage = 35 }
+local BOMBLET_BLAST = { radius = 7, power = 45, damage = 18 } -- each of the cluster bomb's little bombs
+local MISSILE_BLAST = { radius = 6, power = 45, damage = 14 }
 local ARROW_SPEED = 55 -- studs per second: slow enough to watch the arrow fly
 local ARROW_TURN = math.rad(220) -- how fast (per second) an arrow can steer onto the noob in flight
 local ROCKET_SPEED = 40
 local BULLET_SPEED = 90
 local PROJECTILE_RANGE = 150
 -- How far ahead of a flying model's middle its tip is (so the tip is what hits)
-local PROJECTILE_REACH = { Arrow = 1.55, Rocket = 0.95, Bullet = 0.35 }
+local PROJECTILE_REACH = {
+	Arrow = 1.55,
+	Rocket = 0.95,
+	Bullet = 0.35,
+	Pellet = 0.2,
+	Cannonball = 0.5,
+	Harpoon = 1.15,
+	Missile = 0.6,
+	AcidBlob = 0.45,
+}
 local BOUNCE_SPEED = 55
 local ARROW_DAMAGE = 13
 local HEADSHOT_DAMAGE = 26
@@ -66,11 +82,120 @@ local FUSE_COLOR = Color3.fromRGB(255, 60, 60)
 local BEEP_SLOWEST = 0.45
 local BEEP_FASTEST = 0.07
 local FIRST_SHOT_DELAY = 0.4 -- seconds after PLAY before a weapon's first shot
+local RETRY_DELAY = 0.05 -- how soon a weapon that waits for the noob to come close checks again
+
+-- Spike strip
+local SPIKE_DAMAGE = 9
+local SPIKE_BOUNCE = 22 -- how fast it pushes the noob back off the spikes
+local SPIKE_COOLDOWN = 0.35
+-- Big fan
+local FAN_RANGE = 24 -- how far the wind reaches
+local FAN_WIDTH = 3.5 -- how far either side of the middle of the wind still gets blown
+local FAN_PUSH = 110 -- how hard it blows (studs per second, every second)
+local FAN_SPIN = 25 -- radians per second
+-- Boxing glove
+local GLOVE_REACH = 7
+local GLOVE_WIDTH = 3
+local GLOVE_SPEED = 70
+local GLOVE_DAMAGE = 12
+local GLOVE_OUT = 2.2 -- how far the glove shoots out
+-- Bear trap
+local TRAP_DAMAGE = 45
+local TRAP_HOLD = 1.6 -- seconds it holds on
+local TRAP_CLOSED = math.rad(80) -- how far the jaws swing up when it snaps
+-- Shotgun
+local PELLETS = 6
+local PELLET_SPREAD = 0.12
+local PELLET_SPEED = 95
+local PELLET_DAMAGE = 5
+local PELLET_PUSH = 9
+-- Harpoon gun
+local HARPOON_SPEED = 75
+local HARPOON_DAMAGE = 26
+local HARPOON_HEAD_DAMAGE = 40
+local HARPOON_YANK = 45 -- how fast it drags the noob back toward the gun
+-- Cannon
+local CANNONBALL_SPEED = 60
+local CANNONBALL_DAMAGE = 26
+local CANNONBALL_HEAD_DAMAGE = 40
+local CANNONBALL_PUSH = 55
+-- Tesla coil
+local TESLA_RANGE = 13
+local TESLA_TARGETS = 3 -- body parts each zap can reach
+local TESLA_DAMAGE = 8
+local TESLA_JOLT = 18
+-- Gravity flipper
+local FLIP_TIME = 0.9 -- seconds the noob falls UP each flip
+-- Freeze ray
+local FREEZE_DAMAGE = 14
+local FREEZE_TIME = 1.5
+local ICE_COLOR = Color3.fromRGB(150, 225, 255)
+-- Acid blaster
+local ACID_SPEED = 50
+local ACID_DAMAGE = 10
+local ACID_TIME = 2.5 -- seconds the acid keeps eating away (it hurts like fire)
+-- Storm cloud
+local BOLT_DAMAGE = 24
+local BOLT_BURN = 1
+local BOLT_COLOR = Color3.fromRGB(255, 240, 120)
+-- Wrecking ball
+local SWING_ANGLE = math.rad(65) -- how far it swings either side
+local SWING_PERIOD = 2.4 -- seconds for one swing there and back
+local CHAIN_LENGTH = 10.1 -- from the hinge at the top to the middle of the ball
+local BALL_RADIUS = 2.1 -- with the spikes
+local BALL_DAMAGE = 14 -- plus up to 10 more the faster it's swinging
+local BALL_COOLDOWN = 0.5
+-- Ban hammer
+local HAMMER_HALF_WIDTH = 2.6 -- how far either side of the hammer still gets squashed
+local HAMMER_DAMAGE = 30 -- the body part it lands on (the rest under it take less)
+local HAMMER_SPLASH = 12
+local HAMMER_SLAM = 90 -- how fast it drives the noob into the floor
+local HAMMER_DROP_TIME = 0.12
+local HAMMER_HOLD = 0.15
+local HAMMER_RAISE_TIME = 0.5
+-- Railgun
+local RAIL_CHARGE = 0.9 -- seconds it glows brighter before each shot
+local RAIL_DAMAGE = 32 -- to EVERY body part the beam goes through
+local RAIL_PUSH = 85
+local RAIL_COLOR = Color3.fromRGB(60, 160, 255)
+-- Minigun
+local MINIGUN_SPIN_UP = 1 -- seconds before it starts firing
+local MINIGUN_SPREAD = 0.1
+local MINIGUN_SPEED = 100
+-- Missile swarm
+local MISSILE_SPEED = 40
+local MISSILE_TURN = math.rad(300) -- how fast (per second) a missile can turn to chase the noob
+-- Black hole
+local PULL_RANGE = 20
+local PULL_STRENGTH = 140
+local SWIRL_STRENGTH = 60
+local GRIND_RADIUS = 3.2 -- body parts this close to the middle get torn at
+local GRIND_DAMAGE = 5
+local GRIND_TICK = 0.25
+-- Cluster bomb
+local BOMBLETS = 5
+
+local TESLA_COLOR = Color3.fromRGB(150, 200, 255)
 
 local LIFE_GREEN = Color3.fromRGB(80, 220, 90)
 local LIFE_ORANGE = Color3.fromRGB(255, 150, 30)
 local LIFE_RED = Color3.fromRGB(230, 40, 40)
 local LIFE_DARK_RED = Color3.fromRGB(110, 0, 0)
+
+-- Sounds that keep going while a weapon works (looped)
+local LOOP_SOUNDS = { Saw = "SawSpin", Fan = "FanWhir", Minigun = "MinigunLoop", BlackHole = "BlackHoleHum" }
+-- Parts that spin round while a weapon works
+local SPIN_PARTS = {
+	Saw = { Blade = true, Tooth = true, Hub = true },
+	Fan = { FanBlade = true },
+	Minigun = { SpinBarrel = true },
+	BlackHole = { Swirl = true },
+}
+-- Parts that slide out and back when a weapon goes off (the rest of it stays put)
+local MOVING_PARTS = {
+	BoxingGlove = { Glove = true, Thumb = true, Cuff = true, Rod = true },
+	BanHammer = { Head = true, Grip = true, Handle = true },
+}
 
 -- The life bar's color: green when full, orange around the middle, red near the end,
 -- and dark red once it's used up
@@ -107,6 +232,69 @@ local function useUp(arena, item)
 	end
 end
 
+-- A glowing part for effects (lasers, lightning, sparks) that can't be touched or clicked
+local function laserPart(parent, size, cframe, color, shape)
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Material = Enum.Material.Neon
+	part.Shape = shape or Enum.PartType.Block
+	part.Color = color
+	part.Size = size
+	part.CFrame = cframe
+	part.Parent = parent
+	return part
+end
+
+-- A ball of light (or smoke) at `position` that swells to `size` and fades away
+local function puff(parent, position, size, color, seconds)
+	local ball = laserPart(parent, Vector3.one * 0.5, CFrame.new(position), color, Enum.PartType.Ball)
+	TweenService:Create(ball, TweenInfo.new(seconds), { Size = Vector3.one * size, Transparency = 1 }):Play()
+	Debris:AddItem(ball, seconds + 0.05)
+	return ball
+end
+
+-- The point of a (box-shaped) body part closest to `point`
+local function nearestPointOn(part, point)
+	local inPart = part.CFrame:PointToObjectSpace(point)
+	local half = part.Size / 2
+	return part.CFrame:PointToWorldSpace(Vector3.new(
+		math.clamp(inPart.X, -half.X, half.X),
+		math.clamp(inPart.Y, -half.Y, half.Y),
+		math.clamp(inPart.Z, -half.Z, half.Z)
+	))
+end
+
+-- Puts a weapon's moving parts (see MOVING_PARTS) where they rest, moved by `offset`
+-- (a CFrame in the weapon's own directions)
+local function poseMovers(item, offset)
+	local pivot = item.model:GetPivot()
+	for part, rest in item.movers do
+		part.CFrame = pivot * offset * rest
+	end
+end
+
+-- The ban hammer's head `drop` studs below where it rests, its handle stretched to reach it
+local function poseHammer(item, drop)
+	local pivot = item.model:GetPivot()
+	for part, rest in item.movers do
+		if part == item.handle then
+			part.Size = item.handleSize + Vector3.new(drop, 0, 0) -- (a cylinder: its length is its X)
+			part.CFrame = pivot * CFrame.new(0, -drop / 2, 0) * rest
+		else
+			part.CFrame = pivot * CFrame.new(0, -drop, 0) * rest
+		end
+	end
+end
+
+-- Where the wrecking ball hangs when it's not swinging
+local function wreckingBallRest(item)
+	return CFrame.new(item.position) * item.restRotation
+end
+
 -- A run ended: the weapon keeps whatever life it has left, ready for the next run
 function Items.resetForNextRun(item)
 	item.timer = nil
@@ -114,8 +302,18 @@ function Items.resetForNextRun(item)
 	item.fuseTime = nil
 	item.burstLeft = 0
 	item.grindTimer = nil
+	item.blowTime = nil
+	item.punchTime = nil
+	item.slamTime = nil
+	item.charging = nil
+	item.spin = 0
+	item.swingTime = nil
+	item.loopWanted = item.weapon.id == "Saw" or item.weapon.id == "Fan"
 	if item.flames then
 		item.flames.Enabled = false
+	end
+	if item.wind then
+		item.wind.Enabled = false
 	end
 	if item.body and item.bodyColor then
 		item.body.Color = item.bodyColor
@@ -124,6 +322,17 @@ function Items.resetForNextRun(item)
 		item.lens.Size = item.lensSize
 		item.lens.Color = LENS_COLOR
 		item.lensLight.Brightness = 0
+	end
+	if item.core then
+		item.core.Size = item.coreSize
+	end
+	if item.handle then
+		poseHammer(item, 0)
+	elseif next(item.movers) and item.weapon.id ~= "BearTrap" then
+		poseMovers(item, CFrame.new())
+	end
+	if item.weapon.id == "WreckingBall" then
+		item.model:PivotTo(wreckingBallRest(item))
 	end
 end
 
@@ -138,12 +347,17 @@ function Items.create(weapon, id, placement, parent, finish)
 	local model = ItemModels.build(weapon.id)
 	ShopItems.applyFinish(model, finish)
 	model:SetAttribute("ItemId", id)
-	local spinParts = {}
+	local spinNames = SPIN_PARTS[weapon.id] or {}
+	local moverNames = MOVING_PARTS[weapon.id] or {}
+	local spinParts, moving = {}, {}
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part:SetAttribute("ItemId", id)
-			if part.Name == "Blade" or part.Name == "Tooth" or part.Name == "Hub" then
+			if spinNames[part.Name] then
 				table.insert(spinParts, part)
+			end
+			if moverNames[part.Name] or part:GetAttribute("Jaw") then
+				table.insert(moving, part)
 			end
 		end
 	end
@@ -153,8 +367,10 @@ function Items.create(weapon, id, placement, parent, finish)
 	billboard.Name = "LifeBar"
 	billboard.Size = UDim2.fromOffset(54, 9)
 	-- Offset along the item's own "up", so a bounce pad on the ceiling or a wall
-	-- shows its bar on the room side, not inside the wall
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, weapon.size.Y / 2 + 0.9, 0)
+	-- shows its bar on the room side, not inside the wall. Things hanging from the
+	-- ceiling show it underneath them.
+	local barHeight = weapon.size.Y / 2 + 0.9
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, if weapon.onCeiling then -barHeight else barHeight, 0)
 	billboard.AlwaysOnTop = true
 	local back = Instance.new("Frame")
 	back.Size = UDim2.fromScale(1, 1)
@@ -184,17 +400,29 @@ function Items.create(weapon, id, placement, parent, finish)
 		weapon = weapon,
 		model = model,
 		position = placement.Position,
+		restRotation = placement.Rotation,
 		lifeBack = back,
 		lifeFill = fill,
 		lastUsed = 0,
 		body = body,
 		bodyColor = body and body.Color,
 		flames = model:FindFirstChild("Flames", true),
+		wind = model:FindFirstChild("Wind", true),
 		spinParts = spinParts,
+		movers = {}, -- [part] = where it rests, relative to the weapon's middle
+		spin = 0,
+		loopWanted = weapon.id == "Saw" or weapon.id == "Fan",
 	}
-	-- The saw whirs while it spins
-	if weapon.id == "Saw" then
-		item.spinSound = Sounds.newLoop("SawSpin", model.PrimaryPart)
+	for _, part in moving do
+		item.movers[part] = placement:ToObjectSpace(part.CFrame)
+	end
+	if weapon.id == "BanHammer" then
+		item.handle = model:FindFirstChild("Handle")
+		item.handleSize = item.handle.Size
+	end
+	-- The saw whirs while it spins, the fan hums, and so on
+	if LOOP_SOUNDS[weapon.id] then
+		item.loopSound = Sounds.newLoop(LOOP_SOUNDS[weapon.id], model.PrimaryPart)
 	end
 	-- The laser cannon's lens glows up before each shot
 	local lens = weapon.id == "Laser" and model:FindFirstChild("Lens")
@@ -206,6 +434,12 @@ function Items.create(weapon, id, placement, parent, finish)
 		item.lensLight.Brightness = 0
 		item.lensLight.Parent = lens
 	end
+	-- ...and the railgun's core swells up while it charges
+	local core = weapon.id == "Railgun" and model:FindFirstChild("Core")
+	if core then
+		item.core = core
+		item.coreSize = core.Size
+	end
 	setUses(item, weapon.uses)
 	return item
 end
@@ -215,10 +449,40 @@ function Items.move(item, placement)
 	item.position = placement.Position
 	-- Surface weapons turn to face the surface they're on; aiming weapons keep aiming
 	local rotation = if item.weapon.anySurface then placement.Rotation else item.model:GetPivot().Rotation
+	item.restRotation = if item.weapon.anySurface then placement.Rotation else item.restRotation
 	item.model:PivotTo(CFrame.new(placement.Position) * rotation)
 end
 
--- Blows up a mine, grenade or TNT
+-- The cluster bomb throws its little bombs out all round it, and each one goes off
+-- where it lands
+local function throwBomblets(arena, item, center)
+	local number = arena.noobNumber
+	local room = arena.roomCFrame
+	local half = Config.ROOM_SIZE / 2
+	local middle = room:PointToObjectSpace(center)
+	for index = 1, BOMBLETS do
+		local angle = index / BOMBLETS * math.pi * 2 + math.random() * 0.8
+		local spot = middle + Vector3.new(math.cos(angle), math.sin(angle), 0) * (4 + math.random() * 5)
+		-- (worked out in the room's directions, and kept inside the room)
+		spot = Vector3.new(math.clamp(spot.X, -half.X + 1, half.X - 1), math.clamp(spot.Y, 1, Config.ROOM_SIZE.Y - 1), 0)
+		local target = room:PointToWorldSpace(spot)
+		local bomb = laserPart(arena.room, Vector3.one * 0.6, CFrame.new(center), Color3.fromRGB(200, 40, 40), Enum.PartType.Ball)
+		bomb.Material = Enum.Material.SmoothPlastic
+		local flight = 0.3 + index * 0.08
+		TweenService:Create(bomb, TweenInfo.new(flight, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = target }):Play()
+		task.delay(flight + 0.1, function()
+			bomb:Destroy()
+			-- Not if the noob was replaced (or the round ended) in the meantime
+			if arena.noobNumber ~= number or arena.noob.dead or not arena.active then
+				return
+			end
+			Sounds.playAt("Bomblet", target)
+			arena:explode(target, BOMBLET_BLAST.radius, BOMBLET_BLAST.power, BOMBLET_BLAST.damage, item)
+		end)
+	end
+end
+
+-- Blows up a mine, grenade, TNT, cluster bomb or nuke, or collapses a black hole
 function Items.detonate(arena, item)
 	if item.broken or arena.items[item.id] ~= item or arena.noob.dead then
 		return -- (once the noob is destroyed, chain reactions stop and explosives are kept)
@@ -226,16 +490,34 @@ function Items.detonate(arena, item)
 	item.broken = true
 	arena:removeItem(item)
 	local blast = BLASTS[item.weapon.id]
-	if item.weapon.id == "BigTNT" then
+	local id = item.weapon.id
+	if id == "BigTNT" then
 		Sounds.playAt("BigBoom", item.position) -- a deep rumble on top of the normal bang
-	elseif item.weapon.id == "Mine" then
+	elseif id == "Mine" then
 		Sounds.playAt("MineClick", item.position) -- the click of stepping on it...
 		Sounds.playAt("MineBlast", item.position) -- ...and the dirt-throwing blast
-	elseif item.weapon.id == "Grenade" then
+	elseif id == "Grenade" or id == "ClusterBomb" then
 		Sounds.playAt("GrenadeBlast", item.position)
 		task.delay(0.08, Sounds.playAt, "Shrapnel", item.position) -- shrapnel flies just after the crack
+	elseif id == "MiniNuke" then
+		Sounds.playAt("NukeBlast", item.position)
+		Sounds.playAt("BigBoom", item.position)
+		-- A blinding white flash that fills the room
+		puff(arena.room, item.position, 40, Color3.new(1, 1, 1), 0.7)
+	elseif id == "BlackHole" then
+		Sounds.playAt("BlackHoleBoom", item.position)
+		puff(arena.room, item.position, 16, Color3.fromRGB(190, 110, 255), 0.5)
 	end
 	arena:explode(item.position, blast.radius, blast.power, blast.damage, item)
+
+	if id == "ClusterBomb" then
+		throwBomblets(arena, item, item.position)
+	elseif id == "MiniNuke" then
+		-- Everything that's left of the noob catches fire
+		for _, part in arena.noob.parts do
+			arena:ignite(part, BURN_TIME * 0.7)
+		end
+	end
 
 	-- A land mine launches the noob away from whatever it's stuck to: up off the floor,
 	-- across the room off a wall, or slammed down off the ceiling
@@ -254,7 +536,8 @@ function Items.detonate(arena, item)
 end
 
 ---------------------------------------------------------------------------
--- Things that fly: arrows, rockets and bullets
+-- Things that fly: arrows, rockets, bullets, pellets, cannonballs, harpoons,
+-- missiles and blobs of acid
 ---------------------------------------------------------------------------
 
 -- Sends a model flying straight ahead (it moves in Items.stepProjectiles)
@@ -273,7 +556,7 @@ local function launch(arena, item, model, cframe, speed)
 		model = model,
 		direction = cframe.LookVector,
 		speed = speed,
-		kind = model.Name, -- "Arrow", "Rocket" or "Bullet"
+		kind = model.Name, -- "Arrow", "Rocket", "Bullet", "Pellet", "Cannonball", "Harpoon", "Missile" or "AcidBlob"
 		item = item,
 		travelled = 0,
 	})
@@ -328,6 +611,20 @@ local function steerArrow(arena, projectile, position, dt)
 	end
 end
 
+-- Turns a missile toward the noob's torso, wherever it is (it really chases it)
+local function steerMissile(arena, projectile, position, dt)
+	local noob = arena.noob
+	local offset = noob.torso.Position - position
+	if noob.dead or offset.Magnitude < 0.1 then
+		return
+	end
+	local angle = math.acos(math.clamp(projectile.direction:Dot(offset.Unit), -1, 1))
+	-- (straight behind it, there's no "which way" to turn, so it keeps going)
+	if angle > 0.001 and angle < 3.1 then
+		projectile.direction = projectile.direction:Lerp(offset.Unit, math.min(1, MISSILE_TURN * dt / angle)).Unit
+	end
+end
+
 -- An arrow reached the noob: knock that body part back and leave the arrow stuck in it
 local function arrowHit(arena, projectile, result)
 	local part, direction = result.Instance, projectile.direction
@@ -343,15 +640,142 @@ local function arrowHit(arena, projectile, result)
 	arena:hit("Crossbow", projectile.item, { { part = part, amount = amount, position = result.Position } })
 end
 
+-- A machine gun or minigun bullet
 local function bulletHit(arena, projectile, result)
 	local part = result.Instance
 	part.AssemblyLinearVelocity += projectile.direction * 12
 	arena.ignoreImpactUntil = os.clock() + 0.05
-	arena:hit("MachineGun", projectile.item, { { part = part, amount = BULLET_DAMAGE, position = result.Position } })
+	arena:hit(projectile.item.weapon.id, projectile.item, { { part = part, amount = BULLET_DAMAGE, position = result.Position } })
 end
 
--- Moves everything in flight along. Rockets blow up on the first thing they hit;
--- arrows stick into the noob, or into the wall for a moment if they miss.
+-- One shotgun pellet: a shell is 6 of these, so a close shot knocks the noob right back
+local function pelletHit(arena, projectile, result)
+	local part = result.Instance
+	part.AssemblyLinearVelocity += projectile.direction * PELLET_PUSH
+	arena.noob:push(projectile.direction * 3)
+	arena.ignoreImpactUntil = os.clock() + 0.05
+	local amount = if part.Name == "Head" then PELLET_DAMAGE * 1.6 else PELLET_DAMAGE
+	arena:hit("Shotgun", projectile.item, { { part = part, amount = amount, position = result.Position } })
+end
+
+-- A harpoon spears the noob and the rope yanks it back toward the gun
+local function harpoonHit(arena, projectile, result)
+	local part, direction = result.Instance, projectile.direction
+	Sounds.playAt("ArrowHit", result.Position)
+	arena.noob:push(-direction * HARPOON_YANK)
+	part.AssemblyLinearVelocity -= direction * 15
+	arena.noob:spin(6)
+	-- The rope, pulled tight for a moment
+	local gun = projectile.item.model
+	if gun.Parent then
+		local from = gun:GetPivot().Position
+		local length = (result.Position - from).Magnitude
+		local rope = laserPart(arena.room, Vector3.new(0.1, 0.1, length), CFrame.lookAt(from:Lerp(result.Position, 0.5), result.Position), Color3.fromRGB(205, 180, 130))
+		rope.Material = Enum.Material.Fabric
+		Debris:AddItem(rope, 0.35)
+	end
+	arena.ignoreImpactUntil = os.clock() + 0.15
+	local amount = if part.Name == "Head" then HARPOON_HEAD_DAMAGE else HARPOON_DAMAGE
+	arena:hit("Harpoon", projectile.item, { { part = part, amount = amount, position = result.Position } })
+end
+
+-- A cannonball sends the whole noob flying (into the walls, for big crashes)
+local function cannonballHit(arena, projectile, result)
+	local part, direction = result.Instance, projectile.direction
+	Sounds.playAt("BodyImpact", result.Position)
+	Sounds.playAt("Punch", result.Position)
+	arena.noob:push(direction * CANNONBALL_PUSH + arena.roomCFrame.UpVector * 15)
+	arena.noob:spin(10)
+	arena.ignoreImpactUntil = os.clock() + 0.15
+	local amount = if part.Name == "Head" then CANNONBALL_HEAD_DAMAGE else CANNONBALL_DAMAGE
+	arena:hit("Cannon", projectile.item, { { part = part, amount = amount, position = result.Position } })
+end
+
+-- Acid splashes the body part and keeps eating away at it (like fire, but green)
+local function acidHit(arena, projectile, result)
+	local part = result.Instance
+	Sounds.playAt("AcidSizzle", result.Position)
+	part.AssemblyLinearVelocity += projectile.direction * 8
+	arena:ignite(part, ACID_TIME, true)
+	arena:hit("AcidBlaster", projectile.item, { { part = part, amount = ACID_DAMAGE, position = result.Position } })
+end
+
+-- Missed: an arrow or harpoon sticks in the wall for a moment, point first
+local function stickInWall(projectile, result, pivot)
+	if result then
+		projectile.model:PivotTo(pivot.Rotation + (result.Position - projectile.direction * (PROJECTILE_REACH[projectile.kind] - 0.65)))
+		Sounds.playAt("ArrowWall", result.Position)
+	end
+	Debris:AddItem(projectile.model, 2)
+end
+
+-- What happens when each kind of projectile hits something (`result` = the raycast hit,
+-- or nil if it flew too far), `hitNoob` = it hit a body part
+local LANDINGS = {
+	Rocket = function(arena, projectile, result)
+		projectile.model:Destroy()
+		if result then
+			local blast = ROCKET_BLAST
+			arena:explode(result.Position, blast.radius, blast.power, blast.damage, projectile.item)
+		end
+	end,
+	Missile = function(arena, projectile, result)
+		projectile.model:Destroy()
+		if result then
+			local blast = MISSILE_BLAST
+			Sounds.playAt("MissileBlast", result.Position)
+			arena:explode(result.Position, blast.radius, blast.power, blast.damage, projectile.item)
+		end
+	end,
+	Bullet = function(arena, projectile, result, hitNoob)
+		projectile.model:Destroy()
+		if hitNoob then
+			bulletHit(arena, projectile, result)
+		end
+	end,
+	Pellet = function(arena, projectile, result, hitNoob)
+		projectile.model:Destroy()
+		if hitNoob then
+			pelletHit(arena, projectile, result)
+		end
+	end,
+	Cannonball = function(arena, projectile, result, hitNoob)
+		projectile.model:Destroy()
+		if hitNoob then
+			cannonballHit(arena, projectile, result)
+		elseif result then
+			Sounds.playAt("Thud", result.Position)
+		end
+	end,
+	AcidBlob = function(arena, projectile, result, hitNoob)
+		projectile.model:Destroy()
+		if hitNoob then
+			acidHit(arena, projectile, result)
+		elseif result then
+			Sounds.playAt("AcidSizzle", result.Position, 0.5)
+		end
+	end,
+	Arrow = function(arena, projectile, result, hitNoob, pivot)
+		if hitNoob then
+			projectile.model:Destroy()
+			arrowHit(arena, projectile, result)
+		else
+			stickInWall(projectile, result, pivot)
+		end
+	end,
+	Harpoon = function(arena, projectile, result, hitNoob, pivot)
+		if hitNoob then
+			projectile.model:Destroy()
+			harpoonHit(arena, projectile, result)
+		else
+			stickInWall(projectile, result, pivot)
+		end
+	end,
+}
+
+-- Moves everything in flight along. Rockets and missiles blow up on the first thing
+-- they hit; arrows and harpoons stick into the noob, or into the wall for a moment
+-- if they miss.
 function Items.stepProjectiles(arena, dt)
 	if #arena.projectiles == 0 then
 		return
@@ -365,6 +789,8 @@ function Items.stepProjectiles(arena, dt)
 		local pivot = projectile.model:GetPivot()
 		if projectile.kind == "Arrow" then
 			steerArrow(arena, projectile, pivot.Position, dt)
+		elseif projectile.kind == "Missile" then
+			steerMissile(arena, projectile, pivot.Position, dt)
 		end
 		local step = projectile.direction * projectile.speed * dt
 		local reach = projectile.direction * PROJECTILE_REACH[projectile.kind]
@@ -378,29 +804,8 @@ function Items.stepProjectiles(arena, dt)
 			projectile.model:PivotTo(CFrame.lookAt(position, position + projectile.direction))
 		else
 			table.remove(arena.projectiles, index)
-			local hitNoob = result and table.find(arena.noob.parts, result.Instance)
-			if projectile.kind == "Rocket" then
-				projectile.model:Destroy()
-				if result then
-					local blast = ROCKET_BLAST
-					arena:explode(result.Position, blast.radius, blast.power, blast.damage, projectile.item)
-				end
-			elseif projectile.kind == "Bullet" then
-				projectile.model:Destroy()
-				if hitNoob then
-					bulletHit(arena, projectile, result)
-				end
-			elseif hitNoob then
-				projectile.model:Destroy()
-				arrowHit(arena, projectile, result)
-			else
-				-- Missed: the arrow sticks in the wall for a moment, head first
-				if result then
-					projectile.model:PivotTo(pivot.Rotation + (result.Position - projectile.direction * 0.9))
-					Sounds.playAt("ArrowWall", result.Position)
-				end
-				Debris:AddItem(projectile.model, 2)
-			end
+			local hitNoob = result ~= nil and table.find(arena.noob.parts, result.Instance) ~= nil
+			LANDINGS[projectile.kind](arena, projectile, result, hitNoob, pivot)
 		end
 	end
 end
@@ -466,44 +871,30 @@ local function burnCone(arena, item)
 	end
 end
 
--- A glowing part for laser effects that can't be touched or clicked
-local function laserPart(parent, size, cframe, color, shape)
-	local part = Instance.new("Part")
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.CastShadow = false
-	part.Material = Enum.Material.Neon
-	part.Shape = shape or Enum.PartType.Block
-	part.Color = color
-	part.Size = size
-	part.CFrame = cframe
-	part.Parent = parent
-	return part
-end
-
--- The shot: a white-hot core inside a thick red glow that flashes on and then
--- thins out to nothing, a flash at the muzzle, and (if it hit) a burst of light
--- and sparks flying off the noob
-local function laserEffects(arena, from, to, hit)
+-- The shot: a white-hot core inside a thick glow (red, unless `color` says otherwise)
+-- that flashes on and then thins out to nothing, a flash at the muzzle, and (if it
+-- hit) a burst of light and sparks flying off the noob. `thickness` makes it fatter.
+local function laserEffects(arena, from, to, hit, color, thickness)
+	color = color or Color3.fromRGB(255, 30, 30)
+	thickness = thickness or 1
 	local length = (to - from).Magnitude
 	local cframe = CFrame.lookAt(from:Lerp(to, 0.5), to)
 	local fade = TweenInfo.new(LASER_FADE, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-	local glow = laserPart(arena.room, Vector3.new(0.8, 0.8, length), cframe, Color3.fromRGB(255, 30, 30))
+	local glow = laserPart(arena.room, Vector3.new(0.8, 0.8, length) * Vector3.new(thickness, thickness, 1), cframe, color)
 	glow.Transparency = 0.45
-	local core = laserPart(arena.room, Vector3.new(0.25, 0.25, length), cframe, Color3.fromRGB(255, 225, 225))
+	local core = laserPart(arena.room, Vector3.new(0.25, 0.25, length) * Vector3.new(thickness, thickness, 1), cframe, color:Lerp(Color3.new(1, 1, 1), 0.85))
 	for _, part in { glow, core } do
 		TweenService:Create(part, fade, { Size = Vector3.new(0, 0, length), Transparency = 1 }):Play()
 		Debris:AddItem(part, LASER_FADE + 0.05)
 	end
 
-	local flashes = { { from, 1.6 } }
+	local flashColor = color:Lerp(Color3.new(1, 1, 1), 0.4)
+	local flashes = { { from, 1.6 * thickness } }
 	if hit then
-		table.insert(flashes, { to, 3.5 })
+		table.insert(flashes, { to, 3.5 * thickness })
 	end
 	for _, spot in flashes do
-		local flash = laserPart(arena.room, Vector3.one * 0.5, CFrame.new(spot[1]), Color3.fromRGB(255, 130, 100), Enum.PartType.Ball)
+		local flash = laserPart(arena.room, Vector3.one * 0.5, CFrame.new(spot[1]), flashColor, Enum.PartType.Ball)
 		TweenService:Create(flash, TweenInfo.new(LASER_FADE), { Size = Vector3.one * spot[2], Transparency = 1 }):Play()
 		Debris:AddItem(flash, LASER_FADE + 0.05)
 	end
@@ -511,12 +902,13 @@ local function laserEffects(arena, from, to, hit)
 	if hit then
 		local space = arena.roomCFrame.Rotation
 		local back = space:VectorToObjectSpace((from - to).Unit)
+		local sparkColor = color:Lerp(Color3.fromRGB(255, 220, 140), 0.6)
 		for _ = 1, 8 do
 			-- Mostly bouncing back toward the cannon, spread out, and kept flat to the camera
 			-- (worked out in the room's directions, then turned back to the world's)
 			local spray = (back + Vector3.new(math.random() - 0.5, math.random() - 0.3, 0) * 1.6) * Vector3.new(1, 1, 0.2)
 			spray = space:VectorToWorldSpace(spray)
-			local spark = laserPart(arena.room, Vector3.new(0.12, 0.12, 0.5), CFrame.lookAt(to, to + spray), Color3.fromRGB(255, 200, 120))
+			local spark = laserPart(arena.room, Vector3.new(0.12, 0.12, 0.5), CFrame.lookAt(to, to + spray), sparkColor)
 			local seconds = 0.25 + math.random() * 0.2
 			TweenService:Create(spark, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				CFrame = CFrame.lookAt(to + spray.Unit * (2 + math.random() * 2), to + spray * 2),
@@ -539,13 +931,20 @@ local function chargeLaser(item)
 	item.lensLight.Range = 2 + progress * 8
 end
 
-local function fireLaser(arena, item)
-	local muzzle = item.model:GetPivot() * CFrame.new(0, 0, -1.9)
+-- A beam fired straight ahead from `muzzle` (a CFrame): the raycast hit on the first body
+-- part it reaches (or nil), and where the beam ends
+local function beamAt(arena, muzzle)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = arena.noob.parts
 	local result = Workspace:Raycast(muzzle.Position, muzzle.LookVector * 100, params)
 	local target = if result then result.Position else muzzle.Position + muzzle.LookVector * 60
+	return result, target
+end
+
+local function fireLaser(arena, item)
+	local muzzle = item.model:GetPivot() * CFrame.new(0, 0, -1.9)
+	local result, target = beamAt(arena, muzzle)
 
 	laserEffects(arena, muzzle.Position, target, result ~= nil)
 	arena.recorder:event("laser", { position = muzzle.Position, target = target })
@@ -561,16 +960,328 @@ local function fireLaser(arena, item)
 	useUp(arena, item)
 end
 
+-- A jagged bolt of lightning from one point to another that flickers out
+local function boltEffect(arena, from, to, color, thickness)
+	local space = arena.roomCFrame.Rotation
+	local points = { from }
+	local segments = 6
+	for index = 1, segments - 1 do
+		-- Zig-zagging, kept flat to the camera
+		local jitter = space:VectorToWorldSpace(Vector3.new(math.random() - 0.5, math.random() - 0.5, 0) * 1.6)
+		table.insert(points, from:Lerp(to, index / segments) + jitter)
+	end
+	table.insert(points, to)
+	for index = 1, #points - 1 do
+		local a, b = points[index], points[index + 1]
+		local length = (b - a).Magnitude
+		local segment = laserPart(arena.room, Vector3.new(thickness, thickness, length), CFrame.lookAt(a:Lerp(b, 0.5), b), color)
+		TweenService:Create(segment, TweenInfo.new(0.3), { Size = Vector3.new(0.05, 0.05, length), Transparency = 1 }):Play()
+		Debris:AddItem(segment, 0.35)
+	end
+	puff(arena.room, to, 3, Color3.new(1, 1, 1), 0.3)
+end
+
+local function fireShotgun(arena, item)
+	local gun = item.model:GetPivot() * CFrame.new(0, 0.15, -2.1)
+	for _ = 1, PELLETS do
+		local spread = CFrame.Angles((math.random() - 0.5) * 2 * PELLET_SPREAD, (math.random() - 0.5) * 2 * PELLET_SPREAD, 0)
+		launch(arena, item, ItemModels.buildProjectile("Pellet"), gun * spread, PELLET_SPEED)
+	end
+	puff(arena.room, gun.Position, 1.6, Color3.fromRGB(255, 200, 120), 0.15)
+	Sounds.playAt("ShotgunBlast", item.position)
+	useUp(arena, item)
+end
+
+local function fireHarpoon(arena, item)
+	-- Aims ahead of a moving noob, like the crossbow
+	local start = (item.model:GetPivot() * CFrame.new(0, 0.05, -1.9)).Position
+	local aim = CFrame.lookAt(start, predictNoob(arena, start, HARPOON_SPEED))
+	item.model:PivotTo(CFrame.lookAt(item.position, item.position + aim.LookVector))
+	launch(arena, item, ItemModels.buildProjectile("Harpoon"), aim, HARPOON_SPEED)
+	Sounds.playAt("HarpoonShot", item.position)
+	useUp(arena, item)
+end
+
+local function fireCannon(arena, item)
+	local start = (item.model:GetPivot() * CFrame.new(0, 0.15, -1.9)).Position
+	local aim = CFrame.lookAt(start, predictNoob(arena, start, CANNONBALL_SPEED))
+	item.model:PivotTo(CFrame.lookAt(item.position, item.position + aim.LookVector))
+	launch(arena, item, ItemModels.buildProjectile("Cannonball"), aim, CANNONBALL_SPEED)
+	Sounds.playAt("CannonFire", item.position)
+	puff(arena.room, start, 3, Color3.fromRGB(200, 200, 205), 0.6).Material = Enum.Material.SmoothPlastic -- smoke
+	useUp(arena, item)
+end
+
+-- Body parts close enough to `item`, inside the strip `reach` long and `width` either
+-- side, straight out of its top. Returns the closest one, or nil.
+local function closestInFront(arena, item, reach, width)
+	local pivot = item.model:GetPivot()
+	local up = pivot.UpVector
+	local space = arena.roomCFrame.Rotation
+	local closest, closestAlong = nil, math.huge
+	for _, part in arena.noob.parts do
+		if arena.noob.attached[part] then
+			local offset = part.Position - pivot.Position
+			local along = offset:Dot(up)
+			-- How far off to the side, ignoring how near or far from the camera
+			local side = space:VectorToObjectSpace(offset - up * along) * Vector3.new(1, 1, 0)
+			if along > 0 and along <= reach and side.Magnitude <= width and along < closestAlong then
+				closest, closestAlong = part, along
+			end
+		end
+	end
+	return closest
+end
+
+-- Only punches once the noob is right in front of it
+local function fireGlove(arena, item)
+	local target = closestInFront(arena, item, GLOVE_REACH, GLOVE_WIDTH)
+	if not target then
+		return false
+	end
+	item.punchTime = 0
+	Sounds.playAt("GloveRelease", item.position)
+	Sounds.playAt("GlovePunch", target.Position)
+	arena.noob:launchAway(item.model:GetPivot().UpVector, GLOVE_SPEED, 0)
+	arena.ignoreImpactUntil = os.clock() + 0.15
+	arena:hit("BoxingGlove", item, { { part = target, amount = GLOVE_DAMAGE } })
+	useUp(arena, item)
+	return true
+end
+
+-- Zaps up to 3 of the nearest body parts, once the noob comes in range
+local function fireTesla(arena, item)
+	local top = (item.model:GetPivot() * CFrame.new(0, 1.9, 0)).Position
+	local targets = {}
+	for _, part in arena.noob.parts do
+		if arena.noob.attached[part] and (part.Position - top).Magnitude <= TESLA_RANGE then
+			table.insert(targets, part)
+		end
+	end
+	if #targets == 0 then
+		return false
+	end
+	table.sort(targets, function(a, b)
+		return (a.Position - top).Magnitude < (b.Position - top).Magnitude
+	end)
+	local space = arena.roomCFrame.Rotation
+	local hits = {}
+	for index = 1, math.min(TESLA_TARGETS, #targets) do
+		local part = targets[index]
+		boltEffect(arena, top, part.Position, TESLA_COLOR, 0.22)
+		arena.recorder:event("laser", { position = top, target = part.Position, color = TESLA_COLOR, width = 0.35 })
+		-- The jolt makes it jerk about
+		part.AssemblyLinearVelocity += space:VectorToWorldSpace(Vector3.new(math.random() - 0.5, math.random(), 0)) * TESLA_JOLT
+		table.insert(hits, { part = part, amount = TESLA_DAMAGE })
+	end
+	arena.ignoreImpactUntil = os.clock() + 0.1
+	Sounds.playAt("TeslaZap", item.position)
+	arena:hit("TeslaCoil", item, hits)
+	useUp(arena, item)
+	return true
+end
+
+-- The noob falls UP for a moment, then gravity comes back and it falls down again
+local function fireGravityFlip(arena, item)
+	local noob, number = arena.noob, arena.noobNumber
+	noob:setGravity(-1)
+	task.delay(FLIP_TIME, function()
+		if arena.noobNumber == number then -- (a fresh noob already has normal gravity)
+			noob:setGravity(1)
+		end
+	end)
+	arena.armed = true -- the crashes it causes count
+	puff(arena.room, item.position, 5, Color3.fromRGB(170, 70, 255), 0.4)
+	Sounds.playAt("GravityFlip", item.position)
+	useUp(arena, item)
+end
+
+local function fireFreeze(arena, item)
+	local muzzle = item.model:GetPivot() * CFrame.new(0, 0, -1.9)
+	local result, target = beamAt(arena, muzzle)
+	laserEffects(arena, muzzle.Position, target, result ~= nil, ICE_COLOR)
+	arena.recorder:event("laser", { position = muzzle.Position, target = target, color = ICE_COLOR })
+	Sounds.playAt("FreezeShot", item.position)
+	if result then
+		Sounds.playAt("IceCrack", result.Position)
+		arena:hit("FreezeRay", item, { { part = result.Instance, amount = FREEZE_DAMAGE, position = result.Position } })
+		arena:freezeNoob(FREEZE_TIME)
+		-- Frozen in its tracks: it slows right down, then drops like a statue
+		for _, part in arena.noob.parts do
+			part.AssemblyLinearVelocity *= 0.3
+			part.AssemblyAngularVelocity *= 0.3
+		end
+		arena.ignoreImpactUntil = os.clock() + 0.1
+	end
+	useUp(arena, item)
+end
+
+local function fireAcid(arena, item)
+	local start = (item.model:GetPivot() * CFrame.new(0, -0.05, -1.9)).Position
+	local aim = CFrame.lookAt(start, predictNoob(arena, start, ACID_SPEED))
+	launch(arena, item, ItemModels.buildProjectile("AcidBlob"), aim, ACID_SPEED)
+	Sounds.playAt("AcidSpray", item.position)
+	useUp(arena, item)
+end
+
+-- Lightning strikes whichever body part is closest to the cloud
+local function fireStorm(arena, item)
+	local cloud = (item.model:GetPivot() * CFrame.new(0, -1.4, 0)).Position
+	local target, best = nil, math.huge
+	for _, part in arena.noob.parts do
+		local distance = (part.Position - cloud).Magnitude
+		if arena.noob.attached[part] and distance < best then
+			target, best = part, distance
+		end
+	end
+	if not target then
+		return false
+	end
+	boltEffect(arena, cloud, target.Position, BOLT_COLOR, 0.35)
+	arena.recorder:event("laser", { position = cloud, target = target.Position, color = BOLT_COLOR, width = 0.5 })
+	Sounds.playAt("Thunder", item.position)
+	Sounds.playAt("LightningCrack", target.Position)
+	target.AssemblyLinearVelocity += (target.Position - cloud).Unit * 30
+	arena.noob:spin(6)
+	arena.ignoreImpactUntil = os.clock() + 0.1
+	arena:ignite(target, BOLT_BURN)
+	arena:hit("StormCloud", item, { { part = target, amount = BOLT_DAMAGE, position = target.Position } })
+	useUp(arena, item)
+	return true
+end
+
+-- Slams down once the noob is underneath the hammer: the body part it lands on takes
+-- the most, and everything under it gets driven into the floor
+local function fireHammer(arena, item)
+	local room = arena.roomCFrame
+	local head = room:PointToObjectSpace((item.model:GetPivot() * CFrame.new(0, -1.55, 0)).Position)
+	local under, top, topY = {}, nil, -math.huge
+	for _, part in arena.noob.parts do
+		local spot = room:PointToObjectSpace(part.Position)
+		if arena.noob.attached[part] and math.abs(spot.X - head.X) <= HAMMER_HALF_WIDTH and spot.Y < head.Y then
+			table.insert(under, part)
+			if spot.Y > topY then
+				top, topY = part, spot.Y
+			end
+		end
+	end
+	if not top then
+		return false
+	end
+	item.slamTime = 0
+	item.slamDrop = math.max(0, head.Y - 0.9) -- all the way down to the floor
+	local down = -room.UpVector
+	arena.noob:push(down * HAMMER_SLAM * 0.5)
+	local hits = {}
+	for _, part in under do
+		part.AssemblyLinearVelocity += down * HAMMER_SLAM * 0.5
+		table.insert(hits, { part = part, amount = if part == top then HAMMER_DAMAGE else HAMMER_SPLASH })
+	end
+	Sounds.playAt("SwingWhoosh", item.position)
+	task.delay(HAMMER_DROP_TIME, Sounds.playAt, "HammerSlam", top.Position)
+	arena.ignoreImpactUntil = os.clock() + 0.1
+	arena:hit("BanHammer", item, hits)
+	useUp(arena, item)
+	return true
+end
+
+-- Starts charging up; it fires when the charge is full (see chargeRailgun)
+local function startRailgun(arena, item)
+	item.charging = RAIL_CHARGE
+	Sounds.playAt("RailgunCharge", item.position)
+end
+
+-- The railgun's beam goes straight through the noob: every body part in its way is hit
+local function fireRailgun(arena, item)
+	local muzzle = item.model:GetPivot() * CFrame.new(0, 0, -2.3)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	local remaining = {}
+	for _, part in arena.noob.parts do
+		if arena.noob.attached[part] then
+			table.insert(remaining, part)
+		end
+	end
+	local hits = {}
+	while #remaining > 0 do
+		params.FilterDescendantsInstances = remaining
+		local result = Workspace:Raycast(muzzle.Position, muzzle.LookVector * 100, params)
+		if not result then
+			break
+		end
+		table.insert(hits, { part = result.Instance, amount = RAIL_DAMAGE, position = result.Position })
+		table.remove(remaining, table.find(remaining, result.Instance))
+	end
+	-- The beam carries on until it hits the wall
+	local wallParams = RaycastParams.new()
+	wallParams.FilterType = Enum.RaycastFilterType.Exclude
+	wallParams.FilterDescendantsInstances = { arena.itemsFolder, arena.projectilesFolder, arena.noob.model }
+	local wall = Workspace:Raycast(muzzle.Position, muzzle.LookVector * 100, wallParams)
+	local target = if wall then wall.Position else muzzle.Position + muzzle.LookVector * 60
+
+	laserEffects(arena, muzzle.Position, target, #hits > 0, RAIL_COLOR, 1.4)
+	arena.recorder:event("laser", { position = muzzle.Position, target = target, color = RAIL_COLOR, width = 1 })
+	Sounds.playAt("RailgunFire", item.position)
+	if #hits > 0 then
+		arena.noob:push(muzzle.LookVector * RAIL_PUSH)
+		arena.noob:spin(8)
+		arena.ignoreImpactUntil = os.clock() + 0.15
+		arena:hit("Railgun", item, hits)
+	end
+	item.core.Size = item.coreSize
+	useUp(arena, item)
+end
+
+-- Only fires once the barrels are spinning at full speed (see spinMinigun)
+local function fireMinigun(arena, item)
+	if item.spin < 1 then
+		return false
+	end
+	local gun = item.model:GetPivot()
+	local spread = CFrame.Angles((math.random() - 0.5) * MINIGUN_SPREAD, (math.random() - 0.5) * MINIGUN_SPREAD, 0)
+	launch(arena, item, ItemModels.buildBullet(), gun * CFrame.new(0, 0, -2.3) * spread, MINIGUN_SPEED)
+	useUp(arena, item)
+	return true
+end
+
+-- Two missiles at a time, one curving up and one curving down before they home in
+local function fireMissiles(arena, item)
+	local pod = item.model:GetPivot()
+	item.volley = (item.volley or 0) + 1
+	local row = if item.volley % 2 == 0 then 0.4 else -0.4
+	for _, x in { -0.4, 0.4 } do
+		local curve = CFrame.Angles(if x < 0 then 0.35 else -0.35, 0, 0)
+		launch(arena, item, ItemModels.buildProjectile("Missile"), pod * CFrame.new(x, row, -1.4) * curve, MISSILE_SPEED)
+	end
+	Sounds.playAt("MissileLaunch", item.position)
+	useUp(arena, item)
+end
+
+-- Each weapon's shot. Weapons that only go off when the noob is close enough return
+-- false when it isn't, so they check again straight away instead of waiting.
 local FIRE = {
 	Crossbow = fireCrossbow,
 	RocketLauncher = fireRocket,
 	MachineGun = fireMachineGun,
 	Flamethrower = fireFlamethrower,
 	Laser = fireLaser,
+	Shotgun = fireShotgun,
+	Harpoon = fireHarpoon,
+	Cannon = fireCannon,
+	BoxingGlove = fireGlove,
+	TeslaCoil = fireTesla,
+	GravityFlipper = fireGravityFlip,
+	FreezeRay = fireFreeze,
+	AcidBlaster = fireAcid,
+	StormCloud = fireStorm,
+	BanHammer = fireHammer,
+	Railgun = startRailgun,
+	Minigun = fireMinigun,
+	MissileSwarm = fireMissiles,
 }
 
 ---------------------------------------------------------------------------
--- Traps
+-- Traps and gadgets
 ---------------------------------------------------------------------------
 
 local function bounce(arena, item, bodyPart)
@@ -612,6 +1323,62 @@ local function bounce(arena, item, bodyPart)
 	useUp(arena, item)
 end
 
+-- A body part landed on the spikes: stab it, and it bounces back off them
+local function stab(arena, item, bodyPart)
+	local now = os.clock()
+	if item.broken or now - item.lastUsed < SPIKE_COOLDOWN then
+		return
+	end
+	item.lastUsed = now
+	local up = item.model:GetPivot().UpVector -- out of the spikes, into the room
+	bodyPart.AssemblyLinearVelocity += up * SPIKE_BOUNCE
+	arena.noob:push(up * SPIKE_BOUNCE * 0.4)
+	arena.ignoreImpactUntil = now + 0.1
+	Sounds.playAt("SpikeStab", bodyPart.Position)
+	arena:hit("Spikes", item, { { part = bodyPart, amount = SPIKE_DAMAGE, position = nearestPointOn(bodyPart, item.position) } })
+	useUp(arena, item)
+end
+
+-- The jaws slam shut on a body part and hold it (see stepTrap). One snap and it's spent.
+local function snapTrap(arena, item, bodyPart)
+	if item.closed or item.broken then
+		return
+	end
+	item.closed = true
+	item.held = bodyPart
+	item.holdLeft = TRAP_HOLD
+	setUses(item, 0) -- (it's taken away once it lets go)
+	-- Each jaw swings up round its hinge in the middle
+	local pivot = item.model:GetPivot()
+	for part, rest in item.movers do
+		local side = part:GetAttribute("Jaw")
+		local hinge = CFrame.new(side * 0.25, -0.35, 0)
+		part.CFrame = pivot * hinge * CFrame.Angles(0, 0, side * TRAP_CLOSED) * hinge:Inverse() * rest
+	end
+	Sounds.playAt("TrapSnap", item.position)
+	Sounds.playAt("BoneCrunch", bodyPart.Position)
+	arena.ignoreImpactUntil = os.clock() + 0.2
+	arena:hit("BearTrap", item, { { part = bodyPart, amount = TRAP_DAMAGE } })
+end
+
+-- Holds the trapped body part down in the jaws, then lets go
+local function stepTrap(arena, item, dt)
+	if not item.holdLeft then
+		return
+	end
+	item.holdLeft -= dt
+	local grip = (item.model:GetPivot() * CFrame.new(0, 0.6, 0)).Position
+	local part = item.held
+	part.AssemblyLinearVelocity = (grip - part.Position) * 10
+	if item.holdLeft <= 0 then
+		item.holdLeft = nil
+		item.broken = true
+		task.delay(0.6, function()
+			arena:removeItem(item)
+		end)
+	end
+end
+
 -- Where a body part touches the spinning blade, if it does.
 -- The blade is a flat disc facing the camera, so only its round edge matters: we find
 -- the point of the body part closest to the blade's middle and see if it's inside the
@@ -619,13 +1386,7 @@ end
 -- and "along" the edge (the way the teeth are moving there), or nil if not touching.
 local function sawContact(center, part)
 	-- The closest point of the (box-shaped) body part to the middle of the blade
-	local inPart = part.CFrame:PointToObjectSpace(center.Position)
-	local half = part.Size / 2
-	local closest = part.CFrame:PointToWorldSpace(Vector3.new(
-		math.clamp(inPart.X, -half.X, half.X),
-		math.clamp(inPart.Y, -half.Y, half.Y),
-		math.clamp(inPart.Z, -half.Z, half.Z)
-	))
+	local closest = nearestPointOn(part, center.Position)
 	local relative = center:PointToObjectSpace(closest)
 	if math.abs(relative.Z) > SAW_THICKNESS then
 		return nil -- in front of or behind the blade, not touching its edge
@@ -708,6 +1469,167 @@ local function stepSaw(arena, item, dt)
 	end
 end
 
+-- Spins `parts` round the line through `center` pointing along `axis`
+local function spinRound(parts, center, axis, angle)
+	local turn = CFrame.new(center) * CFrame.fromAxisAngle(axis, angle) * CFrame.new(-center)
+	for _, part in parts do
+		part.CFrame = turn * part.CFrame
+	end
+end
+
+-- Blows everything in front of it (the noob, and any bits torn off it) away across the
+-- room. Each second of wind is one use.
+local function stepFan(arena, item, dt)
+	local pivot = item.model:GetPivot()
+	local up = pivot.UpVector
+	spinRound(item.spinParts, pivot.Position, up, FAN_SPIN * dt)
+	local space = arena.roomCFrame.Rotation
+	for _, part in arena.noob.parts do
+		local offset = part.Position - pivot.Position
+		local along = offset:Dot(up)
+		local side = space:VectorToObjectSpace(offset - up * along) * Vector3.new(1, 1, 0)
+		if along > 0 and along < FAN_RANGE and side.Magnitude < FAN_WIDTH then
+			-- Weaker further away
+			part.AssemblyLinearVelocity += up * FAN_PUSH * (1 - 0.5 * along / FAN_RANGE) * dt
+			arena.armed = true -- the crashes it causes count
+		end
+	end
+	item.blowTime = (item.blowTime or 0) + dt
+	if item.blowTime >= 1 then
+		item.blowTime -= 1
+		useUp(arena, item)
+	end
+end
+
+-- Swings back and forth like a pendulum. The spiked ball smashes whatever it meets,
+-- sending it flying the way the ball is going.
+local function stepWreckingBall(arena, item, dt)
+	local before = item.swingTime or 0
+	item.swingTime = before + dt
+	local phase = item.swingTime / SWING_PERIOD * math.pi * 2
+	local angle = SWING_ANGLE * math.sin(phase)
+	local half = item.weapon.size.Y / 2
+	local hinge = wreckingBallRest(item) * CFrame.new(0, half, 0)
+	local swung = hinge * CFrame.Angles(0, 0, angle) -- (turning round the line facing the camera)
+	item.model:PivotTo(swung * CFrame.new(0, -half, 0))
+	local ball = swung * CFrame.new(0, -CHAIN_LENGTH, 0)
+	-- A whoosh each time it swings through the bottom
+	if before > 0 and math.sin(before / SWING_PERIOD * math.pi * 2) * math.sin(phase) <= 0 then
+		Sounds.playAt("SwingWhoosh", ball.Position)
+	end
+
+	local now = os.clock()
+	if now - item.lastUsed < BALL_COOLDOWN then
+		return
+	end
+	for _, part in arena.noob.parts do
+		local touching = nearestPointOn(part, ball.Position)
+		if arena.noob.attached[part] and (touching - ball.Position).Magnitude <= BALL_RADIUS then
+			item.lastUsed = now
+			-- How fast the ball is going (it's fastest at the bottom of the swing)
+			local turnSpeed = SWING_ANGLE * math.pi * 2 / SWING_PERIOD * math.cos(phase)
+			local velocity = ball.RightVector * turnSpeed * CHAIN_LENGTH
+			local away = part.Position - ball.Position
+			away = if away.Magnitude > 0.01 then away.Unit else -ball.UpVector
+			arena.noob:push(velocity * 1.1 + away * 15)
+			arena.noob:spin(8)
+			arena.ignoreImpactUntil = now + 0.15
+			Sounds.playAt("ChainSmash", touching)
+			local amount = BALL_DAMAGE + 10 * math.min(velocity.Magnitude / 30, 1)
+			arena:hit("WreckingBall", item, { { part = part, amount = amount, position = touching } })
+			useUp(arena, item)
+			return
+		end
+	end
+end
+
+-- Sucks everything in and swirls it round, tearing at whatever gets right into the middle
+local function stepBlackHole(arena, item, dt)
+	local center = item.model:GetPivot()
+	spinRound(item.spinParts, center.Position, center.LookVector, 4 * dt)
+	local space = arena.roomCFrame.Rotation
+	local towardCamera = space.ZVector
+	local grinding = {}
+	for _, part in arena.noob.parts do
+		local offset = center.Position - part.Position
+		local distance = offset.Magnitude
+		if distance < PULL_RANGE and distance > 0.01 then
+			local inward = offset.Unit
+			local swirl = towardCamera:Cross(inward) -- round and round, flat to the camera
+			local strength = 1 - 0.5 * distance / PULL_RANGE
+			local velocity = part.AssemblyLinearVelocity + (inward * PULL_STRENGTH + swirl * SWIRL_STRENGTH) * strength * dt
+			if distance < 4 then
+				velocity *= 0.96 -- caught: it can't fling itself back out
+			end
+			part.AssemblyLinearVelocity = velocity
+			arena.armed = true
+			if distance <= GRIND_RADIUS and arena.noob.attached[part] then
+				table.insert(grinding, part)
+			end
+		end
+	end
+	arena.ignoreImpactUntil = os.clock() + 0.1 -- being swirled round isn't a crash
+
+	item.grindTimer = (item.grindTimer or 0) - dt
+	if #grinding > 0 and item.grindTimer <= 0 then
+		item.grindTimer = GRIND_TICK
+		local hits = {}
+		for _, part in grinding do
+			table.insert(hits, { part = part, amount = GRIND_DAMAGE })
+		end
+		-- Only a fresh grab builds the combo, not every tick
+		local now = os.clock()
+		local fresh = now - (item.lastGrind or 0) > 0.6
+		item.lastGrind = now
+		arena:hit("BlackHole", if fresh then item else nil, hits)
+	end
+end
+
+-- The minigun's barrels spin up before it can fire, and keep spinning while it does
+local function spinMinigun(item, dt)
+	item.spin = math.min(1, item.spin + dt / MINIGUN_SPIN_UP)
+	local gun = item.model:GetPivot()
+	spinRound(item.spinParts, gun.Position, gun.LookVector, item.spin * 30 * dt)
+	item.loopWanted = item.spin >= 1
+end
+
+-- The railgun's core swells and brightens while it charges, then it fires
+local function chargeRailgun(arena, item, dt)
+	item.charging -= dt
+	local progress = 1 - math.max(item.charging, 0) / RAIL_CHARGE
+	item.core.Size = item.coreSize * (1 + progress * 1.5)
+	if item.charging <= 0 then
+		item.charging = nil
+		fireRailgun(arena, item)
+	end
+end
+
+-- The boxing glove and the ban hammer shoot out and come back (this keeps going even
+-- once they're used up, so the last punch still finishes)
+local function animate(item, dt)
+	if item.punchTime then
+		item.punchTime += dt
+		local t = item.punchTime
+		local out = if t < 0.08 then t / 0.08 elseif t < 0.18 then 1 else math.max(0, 1 - (t - 0.18) / 0.3)
+		poseMovers(item, CFrame.new(0, out * GLOVE_OUT, 0))
+		if out <= 0 then
+			item.punchTime = nil
+		end
+	end
+	if item.slamTime then
+		item.slamTime += dt
+		local t = item.slamTime
+		local down = if t < HAMMER_DROP_TIME
+			then t / HAMMER_DROP_TIME
+			elseif t < HAMMER_DROP_TIME + HAMMER_HOLD then 1
+			else math.max(0, 1 - (t - HAMMER_DROP_TIME - HAMMER_HOLD) / HAMMER_RAISE_TIME)
+		poseHammer(item, down * item.slamDrop)
+		if down <= 0 then
+			item.slamTime = nil
+		end
+	end
+end
+
 -- The noob's `bodyPart` touched the item
 function Items.touched(arena, item, bodyPart)
 	if arena.noob.dead then
@@ -718,12 +1640,17 @@ function Items.touched(arena, item, bodyPart)
 		Items.detonate(arena, item)
 	elseif id == "BouncePad" then
 		bounce(arena, item, bodyPart)
+	elseif id == "Spikes" then
+		stab(arena, item, bodyPart)
+	elseif id == "BearTrap" and arena.running then
+		snapTrap(arena, item, bodyPart)
 	end
 end
 
 -- Runs every frame. While the room is playing, weapons fire and fuses burn by themselves.
 function Items.step(arena, item, dt)
 	local weapon = item.weapon
+	animate(item, dt)
 	if item.broken then
 		return
 	end
@@ -737,8 +1664,14 @@ function Items.step(arena, item, dt)
 	-- Weapons hold still while paused, and once the noob has been destroyed (nothing
 	-- keeps attacking the pieces, or wastes its uses on them)
 	local active = arena.running and not arena.noob.dead
-	if item.spinSound and item.spinSound.Playing ~= active then
-		item.spinSound.Playing = active
+	if item.loopSound then
+		local on = active and item.loopWanted
+		if item.loopSound.Playing ~= on then
+			item.loopSound.Playing = on
+		end
+	end
+	if item.wind and item.wind.Enabled ~= active then
+		item.wind.Enabled = active
 	end
 	if not active then
 		if item.flames then
@@ -747,19 +1680,32 @@ function Items.step(arena, item, dt)
 		return
 	end
 
+	if weapon.id == "Minigun" then
+		spinMinigun(item, dt)
+	elseif item.charging then
+		chargeRailgun(arena, item, dt)
+		if item.broken then
+			return -- that was its last shot
+		end
+	end
+
 	if weapon.fireInterval then
 		item.timer = (item.timer or FIRST_SHOT_DELAY) - dt
 		if item.timer <= 0 then
-			item.timer = weapon.fireInterval
-			FIRE[weapon.id](arena, item)
+			local fired = FIRE[weapon.id](arena, item)
+			item.timer = if fired == false then RETRY_DELAY else weapon.fireInterval
 		end
 		if item.lens then
 			chargeLaser(item)
 		end
 	elseif weapon.fuse then
 		if not item.fuseTime then
-			-- The fuse just got lit
-			Sounds.playAt(if weapon.id == "Grenade" then "PinPull" else "FuseHiss", item.position)
+			-- The fuse just got lit (the black hole starts humming instead)
+			if weapon.id == "BlackHole" then
+				item.loopWanted = true
+			else
+				Sounds.playAt(if weapon.id == "Grenade" then "PinPull" else "FuseHiss", item.position)
+			end
 		end
 		item.fuseTime = (item.fuseTime or 0) + dt
 		-- Blink red faster and faster until it goes off
@@ -767,18 +1713,27 @@ function Items.step(arena, item, dt)
 			local blinkSpeed = 4 + 12 * item.fuseTime / weapon.fuse
 			item.body.Color = if math.floor(item.fuseTime * blinkSpeed) % 2 == 0 then item.bodyColor else FUSE_COLOR
 		end
-		-- The grenade beeps: beep... beep.. beep.beep.beep, faster and a little higher as
-		-- the fuse runs out, so you can feel it about to go off
-		if weapon.id == "Grenade" and item.fuseTime >= (item.nextBeep or 0) then
+		-- The grenade (and the nuke) beeps: beep... beep.. beep.beep.beep, faster and a
+		-- little higher as the fuse runs out, so you can feel it about to go off
+		if (weapon.id == "Grenade" or weapon.id == "MiniNuke") and item.fuseTime >= (item.nextBeep or 0) then
 			local left = 1 - item.fuseTime / weapon.fuse -- 1 when lit, 0 when it blows
 			item.nextBeep = item.fuseTime + BEEP_FASTEST + (BEEP_SLOWEST - BEEP_FASTEST) * left
 			Sounds.playAt("GrenadeBeep", item.position).PlaybackSpeed = 1 + (1 - left) * 0.35
+		end
+		if weapon.id == "BlackHole" then
+			stepBlackHole(arena, item, dt)
 		end
 		if item.fuseTime >= weapon.fuse then
 			Items.detonate(arena, item)
 		end
 	elseif weapon.id == "Saw" then
 		stepSaw(arena, item, dt)
+	elseif weapon.id == "Fan" then
+		stepFan(arena, item, dt)
+	elseif weapon.id == "WreckingBall" then
+		stepWreckingBall(arena, item, dt)
+	elseif weapon.id == "BearTrap" then
+		stepTrap(arena, item, dt)
 	end
 
 	-- A flamethrower keeps burning for a moment after each blast

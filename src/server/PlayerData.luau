@@ -258,18 +258,22 @@ function PlayerData.isRenting(player, weaponId)
 	return profile ~= nil and profile.rentals[weaponId] == true
 end
 
--- Spends Noob Bucks on a shop item. Returns true if they had enough.
-function PlayerData.buyShopItem(player, id)
+-- Spends `price` Noob Bucks on a shop item (its price, or less if it's the deal of the
+-- day). A bundle gives you everything in it. Returns true if they had enough.
+function PlayerData.buyShopItem(player, id, price)
 	local profile = profiles[player]
 	local item = ShopItems.byId[id]
-	if not profile or not item or profile.noobBucks < item.price then
+	if not profile or not item or profile.noobBucks < price then
 		return false
 	end
-	PlayerData.addNoobBucks(player, -item.price)
+	PlayerData.addNoobBucks(player, -price)
 	if item.kind == "rent" then
 		profile.rentals[item.weapon] = true
 	else
 		profile.items[id] = true
+		for _, contentId in item.contents or {} do
+			profile.items[contentId] = true
+		end
 	end
 	profile.dirty = true
 	return true

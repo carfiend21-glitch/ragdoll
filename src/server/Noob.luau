@@ -172,6 +172,7 @@ function Noob:spawn()
 		local center = Instance.new("Attachment")
 		center.Parent = part
 		local lift = Instance.new("VectorForce")
+		lift.Name = "Lift"
 		lift.Attachment0 = center
 		lift.RelativeTo = Enum.ActuatorRelativeTo.World
 		lift.ApplyAtCenterOfMass = true
@@ -202,20 +203,57 @@ function Noob:setSkin(skin)
 end
 
 -- Sets a body part on fire for `seconds`. Returns true if it wasn't already burning.
-function Noob:ignite(part, seconds)
+-- `acid` = green acid that eats away at it instead (it hurts just the same).
+function Noob:ignite(part, seconds, acid)
 	if not self.attached[part] then
 		return false
 	end
 	local wasBurning = self.burning[part] ~= nil
 	self.burning[part] = math.max(self.burning[part] or 0, seconds)
-	if not part:FindFirstChild("Flames") then
-		local fire = Instance.new("Fire")
+	local fire = part:FindFirstChild("Flames")
+	if not fire then
+		fire = Instance.new("Fire")
 		fire.Name = "Flames"
 		fire.Size = 3 * S
 		fire.Heat = 4
 		fire.Parent = part
 	end
+	if acid then
+		fire.Color = Color3.fromRGB(120, 255, 60)
+		fire.SecondaryColor = Color3.fromRGB(40, 120, 20)
+	end
 	return not wasBurning
+end
+
+-- Turns gravity up, down or upside down for the whole noob (and any torn-off pieces):
+-- 1 = normal (Config.NOOB_GRAVITY), -1 = falling UP at the same speed
+function Noob:setGravity(scale)
+	for _, part in self.parts do
+		local lift = part:FindFirstChild("Lift")
+		if lift then
+			lift.Force = Vector3.new(0, part:GetMass() * (Workspace.Gravity - Config.NOOB_GRAVITY * scale), 0)
+		end
+	end
+end
+
+-- Frozen solid (Freeze Ray): an icy shine, and its joints go stiff so it tumbles
+-- like a statue. Every body part takes extra damage while it lasts (see Arena:hit).
+function Noob:setIced(iced)
+	local shine = self.model:FindFirstChild("Ice")
+	if iced and not shine then
+		shine = Instance.new("Highlight")
+		shine.Name = "Ice"
+		shine.FillColor = Color3.fromRGB(150, 225, 255)
+		shine.FillTransparency = 0.35
+		shine.OutlineColor = Color3.new(1, 1, 1)
+		shine.Parent = self.model
+	elseif not iced and shine then
+		shine:Destroy()
+	end
+	for _, joint in self.joints do
+		joint.MaxFrictionTorque = if iced then 1e6 else 0
+	end
+	self.iced = iced
 end
 
 -- Burns fires down by `dt` seconds and puts out the ones that are done.
