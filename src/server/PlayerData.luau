@@ -82,6 +82,7 @@ function PlayerData.load(player)
 
 	local achievements = {}
 	local wins = 0
+	local sequenceWins = 0 -- times the lobby voted their attacks the best sequence
 	local bestRun = 0 -- most damage they've ever done in one run
 	local cash = Config.STARTING_CASH -- cash isn't saved: everyone starts fresh
 	local noobBucks = 0
@@ -135,6 +136,9 @@ function PlayerData.load(player)
 		if type(saved.wins) == "number" then
 			wins = saved.wins
 		end
+		if type(saved.sequenceWins) == "number" then
+			sequenceWins = saved.sequenceWins
+		end
 	end
 
 	-- "leaderstats" shows up in the player list in the top-right corner:
@@ -155,6 +159,7 @@ function PlayerData.load(player)
 		owned = owned,
 		wins = wins,
 		winsValue = winsValue,
+		sequenceWins = sequenceWins,
 		bestRun = bestRun,
 		cash = cash,
 		canSave = loaded,
@@ -396,6 +401,17 @@ function PlayerData.addWin(player)
 	return profile.wins
 end
 
+-- The lobby voted their attacks the best sequence of the round. Returns their new total.
+function PlayerData.addSequenceWin(player)
+	local profile = profiles[player]
+	if not profile then
+		return 0
+	end
+	profile.sequenceWins += 1
+	profile.dirty = true
+	return profile.sequenceWins
+end
+
 -- Returns true if `damage` beats their best ever run
 function PlayerData.recordRun(player, damage)
 	local profile = profiles[player]
@@ -485,6 +501,7 @@ function PlayerData.save(player)
 		end
 		data.achievements = achievements
 		data.wins = math.max(if type(data.wins) == "number" then data.wins else 0, profile.wins)
+		data.sequenceWins = math.max(if type(data.sequenceWins) == "number" then data.sequenceWins else 0, profile.sequenceWins)
 		data.bestRun = math.max(if type(data.bestRun) == "number" then data.bestRun else 0, profile.bestRun)
 		-- (Saves from before the rename used "noobCoins": move those over)
 		local before = if type(data.noobBucks) == "number"

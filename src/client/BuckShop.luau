@@ -624,6 +624,9 @@ function BuckShop.start()
 			elseif rented then
 				return "RENTED ✔", GREY, nil, price
 			end
+			if item.kind == "robux" then
+				return ("R$ %d"):format(item.robux), Color3.fromRGB(30, 140, 70), "robux", 0 -- Robux only
+			end
 		elseif item.kind == "bundle" then
 			price, worth = ShopItems.bundlePrice(item, owns)
 			if price == 0 then
@@ -672,6 +675,13 @@ function BuckShop.start()
 		local coins = player:GetAttribute("NoobBucks") or 0
 		if action == "equip" then
 			Remotes.EquipShopItem:FireServer(item.id)
+		elseif action == "robux" then
+			local weapon = Weapons.byId[item.weapon]
+			if weapon.gamePassId and weapon.gamePassId > 0 then
+				MarketplaceService:PromptGamePassPurchase(player, weapon.gamePassId)
+			else
+				notice.Text = ("The %s isn't on sale yet."):format(item.name)
+			end
 		elseif action == "confirm" then
 			if coins < price then
 				-- Not enough: show them the coin packs

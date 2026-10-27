@@ -4,6 +4,8 @@ local NoobBucks = {}
 
 -- How many the winner of a round gets (everyone tied for first gets them)
 NoobBucks.WIN_REWARD = 1
+-- What the player voted "best sequence of attacks" (out of the top 3) gets
+NoobBucks.VOTE_REWARD = 1
 
 -- Robux packs. `productId` = the Developer Product that sells it. 0 means "not set up
 -- yet": create a Developer Product for each pack on the Creator Dashboard

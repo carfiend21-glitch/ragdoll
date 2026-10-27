@@ -40,7 +40,8 @@ local CLASSIC_BLUE = BrickColor.new("Bright blue").Color
 local CLASSIC_GREEN = BrickColor.new("Br. yellowish green").Color
 
 -- `kind`: "unlock" = a weapon unlocked for good, "rent" = a weapon you can use until the
--- end of the next round you place it in, "bundle" = everything in `contents` at once.
+-- end of the next round you place it in, "bundle" = everything in `contents` at once,
+-- "robux" = a weapon only sold for Robux (its card just opens the Game Pass).
 -- `new` = it gets a NEW badge. `robux` = the suggested Robux price of the weapon's Game
 -- Pass (the shop only shows a Robux button once its `gamePassId` is set in Weapons.luau).
 ShopItems.list = {
@@ -53,8 +54,10 @@ ShopItems.list = {
 	{ id = "UnlockRailgun", category = "Exclusive", kind = "unlock", weapon = "Railgun", name = "Railgun", price = 45, robux = 199, new = true },
 	{ id = "UnlockMinigun", category = "Exclusive", kind = "unlock", weapon = "Minigun", name = "Minigun", price = 55, robux = 249, new = true },
 	{ id = "UnlockMissileSwarm", category = "Exclusive", kind = "unlock", weapon = "MissileSwarm", name = "Missile Swarm", price = 55, robux = 249, new = true },
-	{ id = "UnlockBlackHole", category = "Exclusive", kind = "unlock", weapon = "BlackHole", name = "Black Hole", price = 60, robux = 299, new = true },
-	{ id = "UnlockMiniNuke", category = "Exclusive", kind = "unlock", weapon = "MiniNuke", name = "Mini Nuke", price = 75, robux = 399, new = true },
+	-- Robux only: these two can't be bought with Noob Bucks (only tried for a round, below).
+	-- `price` is 0 because they cost no Noob Bucks; `robux` is what the Game Pass costs.
+	{ id = "RobuxBlackHole", category = "Exclusive", kind = "robux", weapon = "BlackHole", name = "Black Hole", price = 0, robux = 299, new = true },
+	{ id = "RobuxMiniNuke", category = "Exclusive", kind = "robux", weapon = "MiniNuke", name = "Mini Nuke", price = 0, robux = 399, new = true },
 
 	-- Weapons: unlock early instead of earning the achievement first
 	{ id = "UnlockSpikes", category = "Weapon", kind = "unlock", weapon = "Spikes", name = "Spike Strip", price = 5, new = true },
@@ -119,8 +122,8 @@ ShopItems.list = {
 		category = "Bundle",
 		kind = "bundle",
 		name = "Doomsday",
-		contents = { "UnlockMiniNuke", "UnlockBlackHole", "UnlockMissileSwarm", "LavaNoob" },
-		price = 160,
+		contents = { "UnlockMinigun", "UnlockMissileSwarm", "LavaNoob" },
+		price = 105,
 	},
 
 	-- Noob skins: what the noob in your room looks like (everyone watching sees it too)
@@ -209,15 +212,16 @@ ShopItems.defaults = {} -- [category] = the free item everyone has
 local unlocks = {} -- [weapon id] = the item that unlocks it for good
 for _, item in ShopItems.list do
 	ShopItems.byId[item.id] = item
-	if item.price == 0 then
+	if item.price == 0 and not item.kind then
 		ShopItems.defaults[item.category] = item.id
 	end
-	if item.kind == "unlock" then
+	if item.kind == "unlock" or item.kind == "robux" then
 		unlocks[item.weapon] = item
 	end
 end
 
--- The shop item that unlocks a weapon for good, or nil if there isn't one
+-- The shop item that unlocks a weapon for good (with Noob Bucks, or kind "robux" for
+-- Robux-only weapons), or nil if there isn't one
 function ShopItems.unlockFor(weaponId)
 	return unlocks[weaponId]
 end

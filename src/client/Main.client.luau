@@ -15,6 +15,7 @@ local Hud = require(script.Parent.Hud)
 local Placement = require(script.Parent.Placement)
 local Replay = require(script.Parent.Replay)
 local Spectate = require(script.Parent.Spectate)
+local Vote = require(script.Parent.Vote)
 
 local player = Players.LocalPlayer
 
@@ -25,6 +26,7 @@ hud.onWeaponClicked = function(weaponId)
 end
 CameraController.start()
 Spectate.start()
+Vote.start()
 local buckShop = BuckShop.start()
 -- Clicking a locked exclusive weapon opens the shop right on it
 hud.onOpenShop = function(weaponId)

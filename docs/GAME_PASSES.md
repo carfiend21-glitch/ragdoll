@@ -24,10 +24,26 @@ Noob Bucks, so the pass feels like the "real" deal.
 | Railgun | R$ 199 | Exclusive weapon |
 | Minigun | R$ 249 | Exclusive weapon |
 | Missile Swarm | R$ 249 | Exclusive weapon |
-| Black Hole | R$ 299 | Exclusive weapon |
-| Mini Nuke | R$ 399 | Exclusive weapon, the "flex" one |
+| Black Hole | R$ 299 | **Robux only** (see below) |
+| Mini Nuke | R$ 399 | **Robux only** (see below), the "flex" one |
 | Rocket Launcher | R$ 99 | Already in the game (Robux only) |
 | Grenade (early) | R$ 25 | Already in the game (skip the achievement) |
+
+## Black Hole and Mini Nuke: Robux-only price plan
+
+These two are the strongest weapons in the game, so they're the only exclusives you can't buy
+with Noob Bucks. Their round price stays fair ($210 and $250 in round cash, the most
+expensive on the bar), so buying them gives a fun, flashy weapon, not a free win.
+
+| Way to get it | Black Hole | Mini Nuke | Notes |
+| --- | --- | --- | --- |
+| **Game Pass (forever)** | **R$ 299** | **R$ 399** | The main way to buy them. Code ready: paste the pass IDs into `gamePassId`. |
+| 1-round trial (Noob Bucks) | 💵 7 | 💵 9 | A cheap taste that makes people want the pass. Already in the shop. |
+| "Doomsday Duo" pass (both) | R$ 599 together (save R$ 99) | | Optional; needs a little code (one pass unlocking two weapons). |
+
+Why these numbers: the other exclusive weapons cost R$ 99-249, so these two sit at the top
+of the range, and the Mini Nuke costs more because it's the bigger "show-off" weapon.
+For comparison, 100 Noob Bucks cost R$ 329.
 
 ## 2. Passes still to build
 

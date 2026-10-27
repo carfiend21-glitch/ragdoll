@@ -1,5 +1,6 @@
--- Global leaderboards (all servers, all time): most wins, and most points scored in
--- one run. Shown on two boards in the middle of the lobby, refreshed every minute.
+-- Global leaderboards (all servers, all time): most wins, most points scored in one
+-- run, and most "best sequence" votes won. Shown on three boards in the middle of the
+-- lobby, refreshed every minute.
 -- These use Roblox's "ordered" DataStores, so they only work in a published game
 -- (or in Studio with "Enable Studio Access to API Services" turned on).
 local DataStoreService = game:GetService("DataStoreService")
@@ -13,11 +14,12 @@ local Leaderboards = {}
 local REFRESH_SECONDS = 60
 local NO_DATA_MESSAGE = "Publish the game (or turn on Studio API access) to see the leaderboard"
 
-local winsStore, runStore = nil, nil
+local winsStore, runStore, sequenceStore = nil, nil, nil
 pcall(function()
 	winsStore = DataStoreService:GetOrderedDataStore("GlobalWins_v1")
 	-- v2: scores became 50x bigger (Config.SCORE_MULTIPLIER), so old v1 scores would look tiny
 	runStore = DataStoreService:GetOrderedDataStore("GlobalBestRun_v2")
+	sequenceStore = DataStoreService:GetOrderedDataStore("GlobalBestSequences_v1")
 end)
 
 -- Player names, looked up once from their user ID
@@ -39,6 +41,19 @@ function Leaderboards.recordWins(player, totalWins)
 		local ok, err = pcall(winsStore.SetAsync, winsStore, tostring(player.UserId), totalWins)
 		if not ok then
 			warn("[Leaderboards] Couldn't save wins: " .. tostring(err))
+		end
+	end)
+end
+
+-- Saves how many times a player's attacks were voted the best sequence
+function Leaderboards.recordSequences(player, total)
+	if not sequenceStore then
+		return
+	end
+	task.spawn(function()
+		local ok, err = pcall(sequenceStore.SetAsync, sequenceStore, tostring(player.UserId), total)
+		if not ok then
+			warn("[Leaderboards] Couldn't save best sequences: " .. tostring(err))
 		end
 	end)
 end
@@ -82,12 +97,13 @@ local function fill(store, rows, unit)
 	end
 end
 
--- `boards` = { winsRows = { TextLabel }, runRows = { TextLabel } } from WorldBuilder
+-- `boards` = { winsRows, runRows, sequenceRows } (each a list of TextLabels) from WorldBuilder
 function Leaderboards.start(boards)
 	task.spawn(function()
 		while true do
 			fill(winsStore, boards.winsRows, "wins")
 			fill(runStore, boards.runRows, "pts")
+			fill(sequenceStore, boards.sequenceRows, "votes won")
 			task.wait(REFRESH_SECONDS)
 		end
 	end)

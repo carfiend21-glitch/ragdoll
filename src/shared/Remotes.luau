@@ -13,6 +13,7 @@ local EVENTS = {
 	"Spectate",
 	"BuyShopItem",
 	"EquipShopItem",
+	"CastVote",
 	-- server -> player
 	"DataSync",
 	"AchievementUnlocked",
@@ -23,6 +24,7 @@ local EVENTS = {
 	"ReplayReset",
 	"ReplayChunk",
 	"ReplayPick",
+	"VoteUpdate",
 }
 local FUNCTIONS = { "GetData" }
 

@@ -93,12 +93,8 @@ local STATUE_COLORS = {
 	["Right Leg"] = BrickColor.new("Br. yellowish green").Color,
 }
 
--- A big classic noob in its noob clothes on a pedestal, one arm up in victory
-local function buildStatue(lobby, top)
-	newShape(lobby, "Pedestal", Enum.PartType.Cylinder, Vector3.new(3, 9, 9), CFrame.new(top + Vector3.new(0, 1.5, 0)) * UPRIGHT, LOBBY.dark)
-	newShape(lobby, "PedestalGlow", Enum.PartType.Cylinder, Vector3.new(0.3, 9.6, 9.6), CFrame.new(top + Vector3.new(0, 3, 0)) * UPRIGHT, LOBBY.neonPink, Enum.Material.Neon)
-
-	local feet = top + Vector3.new(0, 3, 0)
+-- A big classic noob in its noob clothes, one arm up in victory, standing at `feet`
+local function buildStatue(lobby, feet)
 	local base = CFrame.new(feet) * CFrame.Angles(0, math.pi, 0) -- facing the spawn
 	local parts = {
 		{ "Torso", Vector3.new(4, 4, 2), CFrame.new(0, 6, 0) },
@@ -254,8 +250,8 @@ local function buildHowToPlay(lobby, position, lookAt)
 	end
 end
 
--- Builds the lobby. Returns { screen, winsRows, runRows }: the big screen's text,
--- and the rows of the two global leaderboards.
+-- Builds the lobby. Returns { screen, winsRows, runRows, sequenceRows }: the big screen's
+-- text, and the rows of the three global leaderboards.
 function WorldBuilder.buildLobby()
 	-- New places come with their own spawn point; we use the lobby's instead
 	for _, child in Workspace:GetDescendants() do
@@ -283,7 +279,6 @@ function WorldBuilder.buildLobby()
 		rail.Transparency = 0.6
 	end
 
-	buildStatue(lobby, top)
 	for index, angle in { 45, 135, 225, 315 } do
 		local rad = math.rad(angle)
 		buildCouch(lobby, top + Vector3.new(math.sin(rad) * 17, 0, math.cos(rad) * 17), top, LOBBY.cushions[index % 2 + 1])
@@ -321,6 +316,8 @@ function WorldBuilder.buildLobby()
 	for _, x in { -12, 12 } do
 		newPart(lobby, "ScreenLeg", Vector3.new(1, 6, 1), CFrame.new(top + Vector3.new(x, 3, -32)), LOBBY.dark, Enum.Material.Metal)
 	end
+	-- The noob statue stands on top of the screen, right in the middle
+	buildStatue(lobby, top + Vector3.new(0, 18.5, -32))
 	local title = newSign(screen, Enum.NormalId.Back, "RAGDOLL PVP", Color3.fromRGB(255, 200, 60))
 	title.Font = Enum.Font.LuckiestGuy
 	title.Size = UDim2.fromScale(1, 0.4)
@@ -346,8 +343,9 @@ function WorldBuilder.buildLobby()
 	spawn.TopSurface = Enum.SurfaceType.Smooth
 	spawn.Parent = lobby
 
-	-- Global leaderboards on either side of the statue, facing the spawn
+	-- Global leaderboards side by side in the middle of the lobby, facing the spawn
 	local winsRows = buildLeaderboard(lobby, top + Vector3.new(-12, 0, -2), "🏆 MOST WINS", LOBBY.gold)
+	local sequenceRows = buildLeaderboard(lobby, top + Vector3.new(0, 0, -2), "🎬 BEST SEQUENCES", LOBBY.neonCyan)
 	local runRows = buildLeaderboard(lobby, top + Vector3.new(12, 0, -2), "💥 MOST POINTS", LOBBY.neonPink)
 
 	-- "How to play" right behind the spawn (in front of room 1), facing the spawn
@@ -365,7 +363,7 @@ function WorldBuilder.buildLobby()
 	end
 
 	lobby.Parent = Workspace
-	return { screen = status, winsRows = winsRows, runRows = runRows }
+	return { screen = status, winsRows = winsRows, runRows = runRows, sequenceRows = sequenceRows }
 end
 
 -- Returns a list of { model = Model, label = TextLabel } for each room

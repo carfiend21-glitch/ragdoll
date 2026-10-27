@@ -13,7 +13,8 @@
 -- `uses` = how many times it works before it breaks.
 -- `unlockedBy` = the achievement that unlocks it (starter weapons are always unlocked).
 -- `exclusive` = it can only be unlocked with Noob Bucks or Robux, not an achievement
---   (see shared/ShopItems.luau for the Noob Buck prices).
+--   (see shared/ShopItems.luau for the Noob Buck prices). The Black Hole and Mini Nuke
+--   are Robux only.
 -- `gamePassId` = the Game Pass that sells it for Robux. 0 means "not set up yet":
 --   create the pass on the Creator Dashboard, then paste its ID number here.
 -- `aims` = it turns to face the noob.
@@ -460,7 +461,7 @@ Weapons.list = {
 		maxPlaced = 1,
 		description = "Sucks the noob in and spins it round for 4 seconds, then collapses with a BOOM.",
 		exclusive = true,
-		gamePassId = 0, -- suggested price: 299 Robux
+		gamePassId = 0, -- ROBUX ONLY (not Noob Bucks): suggested price 299 Robux
 		fuse = 4,
 		uses = 1,
 		onFloor = false,
@@ -493,7 +494,7 @@ Weapons.list = {
 		maxPlaced = 1,
 		description = "3... 2... 1... a blast that fills the WHOLE room and sets the noob on fire.",
 		exclusive = true,
-		gamePassId = 0, -- suggested price: 399 Robux
+		gamePassId = 0, -- ROBUX ONLY (not Noob Bucks): suggested price 399 Robux
 		explosive = true,
 		fuse = 3,
 		uses = 1,

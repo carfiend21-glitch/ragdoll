@@ -891,6 +891,8 @@ function Hud:_refresh()
 		self.lobbyStatus.Text = "Round over!"
 	elseif phase == "Replay" then
 		self.lobbyStatus.Text = "Watching replays..."
+	elseif phase == "Vote" then
+		self.lobbyStatus.Text = "Voting for the best sequence..."
 	else
 		self.lobbyStatus.Text = "Waiting for players..."
 	end
@@ -1017,7 +1019,10 @@ function Hud:setData(data)
 		lock.Visible = not Weapons.isUnlocked(weapon, self.achievements, self.owned)
 		-- Robux-only weapons show a price tag instead of a padlock
 		-- Exclusive weapons show a Noob Buck, Robux-only ones a price tag, the rest a padlock
-		lock.Text = if weapon.exclusive then "💵" elseif weapon.gamePassId and not weapon.unlockedBy then "R$" else "🔒"
+		local unlock = ShopItems.unlockFor(weapon.id)
+		lock.Text = if unlock and unlock.kind == "unlock" and weapon.exclusive then "💵"
+			elseif weapon.gamePassId and not weapon.unlockedBy then "R$"
+			else "🔒"
 	end
 	self:_refreshCash()
 
@@ -1081,11 +1086,15 @@ function Hud:_onWeaponButton(weapon)
 		if not forSale and self.onOpenShop then
 			self.onOpenShop(weapon.id)
 		end
-		self:flashHint(("⭐ The %s is an EXCLUSIVE weapon: unlock it for 💵 %d Noob Bucks%s"):format(
-			weapon.name,
-			if unlock then unlock.price else 0,
-			if forSale then " or Robux!" else "!"
-		))
+		if unlock and unlock.kind == "robux" then
+			self:flashHint(("⭐ The %s is ROBUX ONLY (R$ %d). Try it for one round in the 💵 SHOP!"):format(weapon.name, unlock.robux))
+		else
+			self:flashHint(("⭐ The %s is an EXCLUSIVE weapon: unlock it for 💵 %d Noob Bucks%s"):format(
+				weapon.name,
+				if unlock then unlock.price else 0,
+				if forSale then " or Robux!" else "!"
+			))
+		end
 	elseif achievement then
 		self:flashHint(
 			("🔒 Get \"%s\" to unlock: %s%s"):format(
@@ -1416,7 +1425,7 @@ function Hud:showResults(results)
 		text({
 			Position = UDim2.new(0, 50, 0, 3),
 			Size = UDim2.new(0.5, -50, 1, -6),
-			Text = entry.name .. (if isMe then " (you)" else ""),
+			Text = entry.name .. (if isMe then " (you)" else "") .. (if entry.bestSequence then "  🎬" else ""),
 			TextColor3 = color,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = row,

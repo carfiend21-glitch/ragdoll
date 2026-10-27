@@ -1,5 +1,6 @@
--- The game loop: lobby countdown -> 90-second round -> replays of the
--- top 3 rooms -> winner and the round leaderboard -> repeat.
+-- The game loop: lobby countdown -> 90-second round -> replays of the top 3 rooms ->
+-- the lobby votes for the best sequence of attacks -> winner and the round
+-- leaderboard -> repeat.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -10,6 +11,7 @@ local Remotes = require(Shared.Remotes)
 
 local Leaderboards = require(script.Parent.Leaderboards)
 local PlayerData = require(script.Parent.PlayerData)
+local SequenceVote = require(script.Parent.SequenceVote)
 
 local REPLAY_SEND_INTERVAL = 2 -- seconds between sending recorded replay pieces to players
 
@@ -31,6 +33,9 @@ local SCREEN_TEXT = {
 	end,
 	Replay = function()
 		return "▶▶ WATCHING REPLAYS"
+	end,
+	Vote = function()
+		return "🎬 VOTE: BEST SEQUENCE!"
 	end,
 	Results = function()
 		return "🏆 ROUND OVER!"
@@ -150,6 +155,18 @@ local function playRound(arenas)
 		countdown("Replay", math.ceil(Config.replayWatchTime(durations)) + 2)
 	end
 
+	-- Straight after the winner's replay, everyone else votes for the best sequence of
+	-- attacks out of the top 3 (see SequenceVote). The pick gets a Noob Buck.
+	local sequenceWinner = nil
+	if longest > 1 then
+		local top = {}
+		for index = 1, #shown do
+			local entry = ranked[index]
+			table.insert(top, { player = entry.player, name = entry.name, damage = entry.arena.damage })
+		end
+		sequenceWinner = SequenceVote.run(top, countdown)
+	end
+
 	-- Most damage wins (a tie means everyone tied for first wins)
 	local best = 0
 	for _, entry in roster do
@@ -166,6 +183,7 @@ local function playRound(arenas)
 		if entry.player.Parent then
 			local damage = entry.arena.damage
 			local winner = best > 0 and damage == best
+			local votedBest = entry.player.UserId == sequenceWinner
 			if winner then
 				-- First place: +1 win (shown in the player list and the lobby leaderboard)
 				Leaderboards.recordWins(entry.player, PlayerData.addWin(entry.player))
@@ -181,7 +199,8 @@ local function playRound(arenas)
 				name = entry.name,
 				damage = damage,
 				winner = winner,
-				bucks = if winner then NoobBucks.WIN_REWARD else 0,
+				bucks = (if winner then NoobBucks.WIN_REWARD else 0) + (if votedBest then NoobBucks.VOTE_REWARD else 0),
+				bestSequence = votedBest,
 				userId = entry.player.UserId,
 			})
 		end
