@@ -7,8 +7,8 @@ Config.INTERMISSION_TIME = 30 -- break in the lobby between rounds
 Config.RESULTS_TIME = 8
 
 -- After a round, the top rooms are replayed one at a time, building up to the winner:
--- 3rd place, then 2nd, then 1st place last, all at 5x speed.
-Config.REPLAY_SPEED_BY_PLACE = { 5, 5, 5 } -- [place] = speed
+-- 3rd place, then 2nd, then 1st place last, all at 8x speed.
+Config.REPLAY_SPEED_BY_PLACE = { 8, 8, 8 } -- [place] = speed
 Config.REPLAY_TITLE_TIME = 1.5 -- seconds the "3RD PLACE" card shows before each replay
 -- How many snapshots per second get recorded
 Config.REPLAY_SAMPLE_RATE = 15

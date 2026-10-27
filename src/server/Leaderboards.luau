@@ -1,6 +1,7 @@
 -- Global leaderboards (all servers, all time): most wins, most points scored in one
 -- run, and most "best sequence" votes won. Shown on three boards in the middle of the
--- lobby, refreshed every minute.
+-- lobby. A board updates a few seconds after someone in this server changes it, and
+-- every 30 seconds anyway (to pick up scores from other servers).
 -- These use Roblox's "ordered" DataStores, so they only work in a published game
 -- (or in Studio with "Enable Studio Access to API Services" turned on).
 local DataStoreService = game:GetService("DataStoreService")
@@ -11,10 +12,12 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 
 local Leaderboards = {}
 
-local REFRESH_SECONDS = 60
+local REFRESH_SECONDS = 30 -- every board re-reads this often, changed or not
+local CHANGED_GAP = 4 -- seconds between re-reads of a board that just changed
 local NO_DATA_MESSAGE = "Publish the game (or turn on Studio API access) to see the leaderboard"
 
 local winsStore, runStore, sequenceStore = nil, nil, nil
+local changed = {} -- [store] = true when a score in it was saved since the board last read it
 pcall(function()
 	winsStore = DataStoreService:GetOrderedDataStore("GlobalWins_v1")
 	-- v2: scores became 50x bigger (Config.SCORE_MULTIPLIER), so old v1 scores would look tiny
@@ -39,7 +42,9 @@ function Leaderboards.recordWins(player, totalWins)
 	end
 	task.spawn(function()
 		local ok, err = pcall(winsStore.SetAsync, winsStore, tostring(player.UserId), totalWins)
-		if not ok then
+		if ok then
+			changed[winsStore] = true
+		else
 			warn("[Leaderboards] Couldn't save wins: " .. tostring(err))
 		end
 	end)
@@ -52,7 +57,9 @@ function Leaderboards.recordSequences(player, total)
 	end
 	task.spawn(function()
 		local ok, err = pcall(sequenceStore.SetAsync, sequenceStore, tostring(player.UserId), total)
-		if not ok then
+		if ok then
+			changed[sequenceStore] = true
+		else
 			warn("[Leaderboards] Couldn't save best sequences: " .. tostring(err))
 		end
 	end)
@@ -70,41 +77,68 @@ function Leaderboards.recordRun(player, damage)
 			end
 			return damage
 		end)
-		if not ok then
+		if ok then
+			changed[runStore] = true
+		else
 			warn("[Leaderboards] Couldn't save best run: " .. tostring(err))
 		end
 	end)
 end
 
--- Fills one board's rows (TextLabels) with the top players from `store`
-local function fill(store, rows, unit)
+-- Fills a board's rows (TextLabels) with the top players from its store
+local function fill(board)
+	local store, rows = board.store, board.rows
 	local ok, pages = false, nil
 	if store then
 		ok, pages = pcall(store.GetSortedAsync, store, false, #rows)
 	end
 	if not ok then
-		for index, row in rows do
-			row.Text = if index == 1 then NO_DATA_MESSAGE else ""
+		-- Keep showing the last scores if it just couldn't read this time
+		if not board.loaded then
+			for index, row in rows do
+				row.Text = if index == 1 then NO_DATA_MESSAGE else ""
+			end
 		end
 		return
 	end
+	board.loaded = true
 	local entries = pages:GetCurrentPage()
 	for index, row in rows do
 		local entry = entries[index]
 		row.Text = if entry
-			then ("%d. %s  -  %s %s"):format(index, nameFor(tonumber(entry.key)), Config.formatScore(entry.value), unit)
+			then ("%d. %s  -  %s %s"):format(index, nameFor(tonumber(entry.key)), Config.formatScore(entry.value), board.unit)
 			else ("%d. ---"):format(index)
 	end
 end
 
+-- Roblox only allows so many leaderboard reads a minute; wait our turn instead of failing
+local function canRead()
+	local ok, budget = pcall(DataStoreService.GetRequestBudgetForRequestType, DataStoreService, Enum.DataStoreRequestType.GetSortedAsync)
+	return not ok or budget > 0
+end
+
 -- `boards` = { winsRows, runRows, sequenceRows } (each a list of TextLabels) from WorldBuilder
 function Leaderboards.start(boards)
+	local list = {
+		{ store = winsStore, rows = boards.winsRows, unit = "wins", readAt = -math.huge },
+		{ store = runStore, rows = boards.runRows, unit = "pts", readAt = -math.huge },
+		{ store = sequenceStore, rows = boards.sequenceRows, unit = "votes won", readAt = -math.huge },
+	}
 	task.spawn(function()
 		while true do
-			fill(winsStore, boards.winsRows, "wins")
-			fill(runStore, boards.runRows, "pts")
-			fill(sequenceStore, boards.sequenceRows, "votes won")
-			task.wait(REFRESH_SECONDS)
+			for _, board in list do
+				local since = os.clock() - board.readAt
+				local due = since >= REFRESH_SECONDS or (board.store and changed[board.store] and since >= CHANGED_GAP)
+				-- (no store at all = no API access: show the message straight away)
+				if due and (not board.store or canRead()) then
+					if board.store then
+						changed[board.store] = nil
+					end
+					board.readAt = os.clock()
+					fill(board)
+				end
+			end
+			task.wait(1)
 		end
 	end)
 end

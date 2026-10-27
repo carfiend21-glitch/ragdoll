@@ -1,5 +1,5 @@
 -- After each round, plays back the top 3 rooms one at a time, building up to the
--- winner: 3rd place, then 2nd place, then 1st place last, all at 5x, each with a
+-- winner: 3rd place, then 2nd place, then 1st place last, all at 8x, each with a
 -- title card first. Shows everything that happened: the noob, the weapons, arrows and
 -- rockets flying, arrows sticking in, explosions, blood, torn-off limbs, damage numbers,
 -- and when players pressed PLAY / STOP / RESTART. Each replay has a damage counter.
@@ -753,7 +753,7 @@ function Replay.play()
 	shade.Color = ColorSequence.new(Color3.fromRGB(35, 36, 48), Color3.fromRGB(12, 12, 16))
 	shade.Parent = background
 
-	-- "3RD PLACE  5x >>>>>" at the top left, the replay's clock at the top right
+	-- "3RD PLACE" at the top left, the replay's clock at the top right
 	local placeLabel = label({
 		Position = UDim2.new(0, 16, 0, 62),
 		Size = UDim2.new(0.6, 0, 0, 44),
@@ -796,7 +796,7 @@ function Replay.play()
 	layout.CellSize = UDim2.fromScale(1, 1)
 	layout.Parent = holder
 
-	-- The title card shown before each replay: "3RD PLACE", their name, and the speed
+	-- The title card shown before each replay: "3RD PLACE" and their name
 	local card = Instance.new("Frame")
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
 	card.Position = UDim2.fromScale(0.5, 0.5)
@@ -809,7 +809,6 @@ function Replay.play()
 	local cardPlace = label({ Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 0.5), Font = TITLE_FONT, Parent = card })
 	cardPlace.TextStrokeTransparency = 0
 	local cardName = label({ Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(1, 0.28), Parent = card })
-	local cardSpeed = label({ Position = UDim2.fromScale(0, 0.78), Size = UDim2.fromScale(1, 0.22), Font = TITLE_FONT, TextColor3 = ORANGE, Parent = card })
 
 	task.spawn(function()
 		-- From 3rd place up, so the winner comes last
@@ -818,18 +817,16 @@ function Replay.play()
 			local recording = recordings[room]
 			local speed = Config.REPLAY_SPEED_BY_PLACE[place]
 			local color = PLACE_COLORS[place]
-			local arrows = ("%dx %s"):format(speed, string.rep(">", speed))
 			currentSpeed = speed
 
 			-- Title card
-			placeLabel.Text = PLACE_NAMES[place] .. "  " .. arrows
+			placeLabel.Text = PLACE_NAMES[place]
 			placeLabel.TextColor3 = color
 			placeScale.Scale = 1.25
 			TweenService:Create(placeScale, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 			cardPlace.Text = (if place == 1 then "👑 " else "") .. PLACE_NAMES[place]
 			cardPlace.TextColor3 = color
 			cardName.Text = recording.name
-			cardSpeed.Text = arrows
 			card.Visible = true
 			cardScale.Scale = 0.6
 			TweenService:Create(cardScale, TweenInfo.new(0.4, Enum.EasingStyle.Back), { Scale = 1 }):Play()
