@@ -9,8 +9,8 @@
 --     that always ends 3-2.
 --   * Anyone who doesn't vote in time gets a random vote cast for them.
 --   * If it's still tied (only possible with an even number of voters), a coin flip decides.
---   * If nobody is left in the lobby to vote (3 or fewer players), the top 3 vote, but
---     never for themselves.
+--   * The top 3 never vote. If there's nobody else to vote (3 or fewer players), there's
+--     no vote that round.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -133,7 +133,7 @@ function SequenceVote.run(entries, countdown)
 		return nil -- nothing to vote on
 	end
 
-	-- Everyone else in the server votes. If there's nobody else, the top 3 vote for each other.
+	-- Everyone else in the server votes (never the top 3 themselves)
 	local voters = {}
 	for _, player in Players:GetPlayers() do
 		if not candidates[player] then
@@ -141,9 +141,7 @@ function SequenceVote.run(entries, countdown)
 		end
 	end
 	if #voters == 0 then
-		for player in candidates do
-			table.insert(voters, player)
-		end
+		return nil -- nobody to vote: no best sequence this round
 	end
 
 	local votes = ask(voters, options, { candidates = info, seconds = VOTE_TIME }, VOTE_TIME, countdown)

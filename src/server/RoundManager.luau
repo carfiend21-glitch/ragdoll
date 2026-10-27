@@ -136,8 +136,8 @@ local function playRound(arenas)
 		player:SetAttribute("Spectating", 0)
 	end
 
-	-- Everyone watches the replays of the top 3 rooms, one at a time: 3rd place at 3x,
-	-- 2nd at 4x, then the winner last at 5x
+	-- Everyone watches the replays of the top 3 rooms, one at a time at 5x speed:
+	-- 3rd place, then 2nd, then the winner last
 	local ranked = table.clone(roster)
 	table.sort(ranked, function(a, b)
 		return a.arena.damage > b.arena.damage
