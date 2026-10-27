@@ -54,11 +54,11 @@ Weapons.list = {
 		icon = "💣",
 		price = 52,
 		maxPlaced = 4,
-		description = "Goes BOOM when the noob touches it.",
+		description = "Goes BOOM when the noob touches it. Sticks to the floor, walls or ceiling.",
 		starter = true,
 		explosive = true,
 		uses = 1,
-		onFloor = true,
+		anySurface = true, -- snaps to the nearest floor, wall or ceiling, like the bounce pad
 		size = Vector3.new(3, 1, 3),
 	},
 	-- ~90 damage, all within 4 seconds (22 bullets)

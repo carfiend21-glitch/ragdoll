@@ -1,4 +1,4 @@
--- The game loop: lobby countdown -> 90-second round -> 2x-4x speed replays of the
+-- The game loop: lobby countdown -> 90-second round -> replays of the
 -- top 3 rooms -> winner and the round leaderboard -> repeat.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -131,19 +131,23 @@ local function playRound(arenas)
 		player:SetAttribute("Spectating", 0)
 	end
 
-	-- Everyone watches the replays of the top rooms (most points first), speeding up from 2x to 4x
+	-- Everyone watches the replays of the top 3 rooms, one at a time: 3rd place at 3x,
+	-- 2nd at 4x, then the winner last at 5x
 	local ranked = table.clone(roster)
 	table.sort(ranked, function(a, b)
 		return a.arena.damage > b.arena.damage
 	end)
-	local shown, longest = {}, 0
+	-- (sent best first; players' screens play them from 3rd place up)
+	local shown, durations, longest = {}, {}, 0
 	for index = 1, math.min(Config.REPLAYS_SHOWN, #ranked) do
+		local duration = ranked[index].arena.recorder:duration()
 		table.insert(shown, ranked[index].arena.index)
-		longest = math.max(longest, ranked[index].arena.recorder:duration())
+		table.insert(durations, duration)
+		longest = math.max(longest, duration)
 	end
 	Remotes.ReplayPick:FireAllClients(shown)
 	if longest > 1 then
-		countdown("Replay", math.ceil(Config.replayWatchTime(longest)) + 2)
+		countdown("Replay", math.ceil(Config.replayWatchTime(durations)) + 2)
 	end
 
 	-- Most damage wins (a tie means everyone tied for first wins)

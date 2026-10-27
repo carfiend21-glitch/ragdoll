@@ -1,8 +1,8 @@
--- After each round, plays back the top 3 rooms (by points) side by side, speeding up from 2x to 4x, so all
--- players can watch each other. Shows everything that happened: the noob, the
--- weapons, arrows and rockets flying, arrows sticking in, explosions, blood,
--- torn-off limbs, damage numbers, and when players pressed PLAY / STOP / RESTART.
--- Each replay has a damage counter, and the player in the lead gets a crown.
+-- After each round, plays back the top 3 rooms one at a time, building up to the
+-- winner: 3rd place at 3x, then 2nd place at 4x, then 1st place last at 5x, each with a
+-- title card first. Shows everything that happened: the noob, the weapons, arrows and
+-- rockets flying, arrows sticking in, explosions, blood, torn-off limbs, damage numbers,
+-- and when players pressed PLAY / STOP / RESTART. Each replay has a damage counter.
 -- The server sends each room's recording in pieces during the round (see server/Recorder).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,10 +42,11 @@ local MAX_POPUPS = 6 -- per replay
 local Replay = {}
 
 local recordings = {} -- [room number] = { name, frames, events }
-local order = {} -- room numbers, in the order players were given rooms
+local order = {} -- room numbers: in the order players were given rooms, then the top few (best first)
 local gui = nil
 local connection = nil
-local currentSpeed = Config.REPLAY_SPEEDS[1] -- how fast the replays are playing right now
+local currentSpeed = Config.REPLAY_SPEED_BY_PLACE[1] -- how fast the replay is playing right now
+local playing = 0 -- goes up every time replays start or stop, so an old one knows to quit
 
 -- Adds `new` to `list`, keeping it in recorded order (`n`) and skipping anything already there
 local function merge(list, new)
@@ -637,11 +638,15 @@ local function updateCell(cell, t)
 	end
 end
 
+local PLACE_NAMES = { "1ST PLACE", "2ND PLACE", "3RD PLACE" }
+local PLACE_COLORS = { GOLD, Color3.fromRGB(215, 220, 230), Color3.fromRGB(225, 150, 90) }
+
 function Replay.play()
 	Replay.stop()
 	if #order == 0 then
 		return
 	end
+	local myTurn = playing
 
 	gui = Instance.new("ScreenGui")
 	gui.Name = "Replay"
@@ -660,17 +665,16 @@ function Replay.play()
 	shade.Color = ColorSequence.new(Color3.fromRGB(35, 36, 48), Color3.fromRGB(12, 12, 16))
 	shade.Parent = background
 
-	local speedLabel = label({
+	-- "3RD PLACE  3x >>>" at the top left, the replay's clock at the top right
+	local placeLabel = label({
 		Position = UDim2.new(0, 16, 0, 62),
 		Size = UDim2.new(0.6, 0, 0, 44),
 		Font = TITLE_FONT,
-		TextColor3 = ORANGE,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = background,
 	})
-	local speedScale = Instance.new("UIScale")
-	speedScale.Parent = speedLabel
-	local shownSpeed = nil
+	local placeScale = Instance.new("UIScale")
+	placeScale.Parent = placeLabel
 	local clock = label({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -16, 0, 62),
@@ -680,7 +684,7 @@ function Replay.play()
 		Parent = background,
 	})
 
-	-- How far through the replays we are
+	-- How far through this replay we are
 	local track = Instance.new("Frame")
 	track.AnchorPoint = Vector2.new(0, 1)
 	track.Position = UDim2.new(0, 16, 1, -10)
@@ -694,58 +698,89 @@ function Replay.play()
 	fill.Parent = track
 	corner(fill, 4)
 
-	local columns = if #order == 1 then 1 else 2
-	local rows = math.ceil(#order / columns)
-	local grid = Instance.new("Frame")
-	grid.Position = UDim2.fromOffset(12, 114)
-	grid.Size = UDim2.new(1, -24, 1, -138)
-	grid.BackgroundTransparency = 1
-	grid.Parent = background
+	-- One replay at a time, filling the screen
+	local holder = Instance.new("Frame")
+	holder.Position = UDim2.fromOffset(12, 114)
+	holder.Size = UDim2.new(1, -24, 1, -138)
+	holder.BackgroundTransparency = 1
+	holder.Parent = background
 	local layout = Instance.new("UIGridLayout")
-	layout.CellSize = UDim2.new(1 / columns, -12, 1 / rows, -12)
-	layout.CellPadding = UDim2.fromOffset(12, 12)
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = grid
+	layout.CellSize = UDim2.fromScale(1, 1)
+	layout.Parent = holder
 
-	local cells = {}
-	local duration = 0
-	for _, room in order do
-		local recording = recordings[room]
-		table.insert(cells, buildCell(grid, room, recording))
-		local last = recording.frames[#recording.frames]
-		duration = math.max(duration, if last then last.t else 0)
-	end
+	-- The title card shown before each replay: "3RD PLACE", their name, and the speed
+	local card = Instance.new("Frame")
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale(0.5, 0.5)
+	card.Size = UDim2.fromScale(0.7, 0.4)
+	card.BackgroundTransparency = 1
+	card.Visible = false
+	card.Parent = background
+	local cardScale = Instance.new("UIScale")
+	cardScale.Parent = card
+	local cardPlace = label({ Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 0.5), Font = TITLE_FONT, Parent = card })
+	cardPlace.TextStrokeTransparency = 0
+	local cardName = label({ Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(1, 0.28), Parent = card })
+	local cardSpeed = label({ Position = UDim2.fromScale(0, 0.78), Size = UDim2.fromScale(1, 0.22), Font = TITLE_FONT, TextColor3 = ORANGE, Parent = card })
 
-	local startTime = os.clock()
-	connection = RunService.RenderStepped:Connect(function()
-		local t
-		t, currentSpeed = Config.replayProgress(os.clock() - startTime, duration)
-		if currentSpeed ~= shownSpeed then
-			-- "REPLAYS 2x >>", then 3x >>>, then 4x >>>>, with a little pop each time it speeds up
-			shownSpeed = currentSpeed
-			speedLabel.Text = ("REPLAYS  %dx %s"):format(currentSpeed, string.rep(">", currentSpeed))
-			speedScale.Scale = 1.25
-			TweenService:Create(speedScale, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	task.spawn(function()
+		-- From 3rd place up, so the winner comes last
+		for place = #order, 1, -1 do
+			local room = order[place]
+			local recording = recordings[room]
+			local speed = Config.REPLAY_SPEED_BY_PLACE[place]
+			local color = PLACE_COLORS[place]
+			local arrows = ("%dx %s"):format(speed, string.rep(">", speed))
+			currentSpeed = speed
+
+			-- Title card
+			placeLabel.Text = PLACE_NAMES[place] .. "  " .. arrows
+			placeLabel.TextColor3 = color
+			placeScale.Scale = 1.25
+			TweenService:Create(placeScale, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+			cardPlace.Text = (if place == 1 then "👑 " else "") .. PLACE_NAMES[place]
+			cardPlace.TextColor3 = color
+			cardName.Text = recording.name
+			cardSpeed.Text = arrows
+			card.Visible = true
+			cardScale.Scale = 0.6
+			TweenService:Create(cardScale, TweenInfo.new(0.4, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+			clock.Text = ""
+			fill.Size = UDim2.fromScale(0, 1)
+			task.wait(Config.REPLAY_TITLE_TIME)
+			if playing ~= myTurn then
+				return
+			end
+			card.Visible = false
+
+			-- Their replay
+			local cell = buildCell(holder, room, recording)
+			cell.nameLabel.Text = ("%sROOM %d: %s"):format(if place == 1 then "👑 " else "", room, recording.name)
+			cell.nameLabel.TextColor3 = color
+			cell.border.Color = color
+			local last = recording.frames[#recording.frames]
+			local duration = if last then last.t else 0
+			local startTime = os.clock()
+			connection = RunService.RenderStepped:Connect(function()
+				local t = math.min((os.clock() - startTime) * speed, duration)
+				updateCell(cell, t)
+				local seconds = math.floor(t)
+				clock.Text = ("⏱ %d:%02d"):format(seconds // 60, seconds % 60)
+				fill.Size = UDim2.fromScale(if duration > 0 then t / duration else 1, 1)
+			end)
+			task.wait(math.max(duration / speed, 0.5))
+			if playing ~= myTurn then
+				return
+			end
+			connection:Disconnect()
+			connection = nil
+			cell.viewport.Parent:Destroy()
 		end
-		local best = 0
-		for _, cell in cells do
-			updateCell(cell, t)
-			best = math.max(best, cell.damage)
-		end
-		for _, cell in cells do
-			local leading = best > 0 and cell.damage == best
-			cell.nameLabel.Text = ("%sROOM %d: %s"):format(if leading then "👑 " else "", cell.room, cell.recording.name)
-			cell.nameLabel.TextColor3 = if leading then GOLD else WHITE
-			cell.border.Color = if leading then GOLD else Color3.fromRGB(70, 72, 85)
-		end
-		local seconds = math.floor(t)
-		clock.Text = ("⏱ %d:%02d"):format(seconds // 60, seconds % 60)
-		fill.Size = UDim2.fromScale(if duration > 0 then t / duration else 0, 1)
 	end)
 end
 
 function Replay.stop()
+	playing += 1 -- tells a replay that's still going to quit
 	if connection then
 		connection:Disconnect()
 		connection = nil

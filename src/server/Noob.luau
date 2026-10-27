@@ -363,14 +363,21 @@ function Noob:spin(strength)
 	end
 end
 
--- Throws the whole noob straight up off something underneath it (a land mine).
--- Any speed it had falling down is thrown away first, so it always really bounces
--- instead of the fall swallowing the kick. `sideways` nudges it away from the blast
--- (across the room).
-function Noob:bounceUp(speed, sideways)
+-- Throws the whole noob away from a surface (a land mine stuck to the floor, a wall or
+-- the ceiling): `away` is the direction out of the surface, in the world. Any speed it
+-- had heading into the surface is thrown away first, so it always really bounces
+-- instead of the fall swallowing the kick. `sideways` nudges it across the room, away
+-- from the blast. Off a wall it gets a little lift too, so it arcs across the room.
+function Noob:launchAway(away, speed, sideways)
+	local out = self.space:VectorToObjectSpace(away) -- in the room's directions
 	for _, part in self.parts do
 		local velocity = self.space:VectorToObjectSpace(part.AssemblyLinearVelocity)
-		part.AssemblyLinearVelocity = self.space:VectorToWorldSpace(Vector3.new(velocity.X * 0.4 + sideways, speed, velocity.Z * 0.2))
+		local along = velocity - out * velocity:Dot(out) -- the speed it had along the surface
+		local launched = Vector3.new(along.X * 0.4 + sideways, along.Y * 0.4, along.Z * 0.2) + out * speed
+		if math.abs(out.X) > 0.5 then
+			launched += Vector3.new(0, speed * 0.3, 0)
+		end
+		part.AssemblyLinearVelocity = self.space:VectorToWorldSpace(launched)
 	end
 	self:spin(10)
 end

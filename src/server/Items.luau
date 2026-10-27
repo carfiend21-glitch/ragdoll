@@ -237,12 +237,18 @@ function Items.detonate(arena, item)
 	end
 	arena:explode(item.position, blast.radius, blast.power, blast.damage, item)
 
-	-- A land mine launches the noob up into the air, the way a real one would
+	-- A land mine launches the noob away from whatever it's stuck to: up off the floor,
+	-- across the room off a wall, or slammed down off the ceiling
 	local noob = arena.noob
 	if blast.bounce and not noob.frozen and (noob.torso.Position - item.position).Magnitude <= blast.radius then
-		local away = arena.roomCFrame:VectorToObjectSpace(noob.torso.Position - item.position).X -- across the room
-		local sideways = math.clamp(away * 3, -12, 12) + (math.random() - 0.5) * 6
-		noob:bounceUp(blast.bounce, sideways)
+		local away = item.model:GetPivot().UpVector -- the mine's top faces into the room
+		local sideways = 0
+		if math.abs(arena.roomCFrame:VectorToObjectSpace(away).Y) > 0.5 then
+			-- On the floor or ceiling: also nudge it across the room, away from the blast
+			local across = arena.roomCFrame:VectorToObjectSpace(noob.torso.Position - item.position).X
+			sideways = math.clamp(across * 3, -12, 12) + (math.random() - 0.5) * 6
+		end
+		noob:launchAway(away, blast.bounce, sideways)
 		arena.ignoreImpactUntil = os.clock() + 0.15
 	end
 end

@@ -6,33 +6,19 @@ Config.ROUND_TIME = 90
 Config.INTERMISSION_TIME = 30 -- break in the lobby between rounds
 Config.RESULTS_TIME = 8
 
--- Replays speed up as they go: the first third plays at 3x, the middle third at 4x
--- and the last third at 5x
-Config.REPLAY_SPEEDS = { 3, 4, 5 }
+-- After a round, the top rooms are replayed one at a time, building up to the winner:
+-- 3rd place at 3x, then 2nd place at 4x, then 1st place last at 5x.
+Config.REPLAY_SPEED_BY_PLACE = { 5, 4, 3 } -- [place] = speed
+Config.REPLAY_TITLE_TIME = 1.5 -- seconds the "3RD PLACE" card shows before each replay
 -- How many snapshots per second get recorded
 Config.REPLAY_SAMPLE_RATE = 15
 
--- For a replay `duration` seconds long (in round time): after `elapsed` real seconds
--- of watching, how far into the round we are, and the speed it's playing at right then
-function Config.replayProgress(elapsed, duration)
-	local part = duration / #Config.REPLAY_SPEEDS
-	local t = 0
-	for _, speed in Config.REPLAY_SPEEDS do
-		local partSeconds = part / speed -- real seconds this third takes to watch
-		if elapsed <= partSeconds then
-			return t + elapsed * speed, speed
-		end
-		elapsed -= partSeconds
-		t += part
-	end
-	return duration, Config.REPLAY_SPEEDS[#Config.REPLAY_SPEEDS]
-end
-
--- How many real seconds it takes to watch a replay `duration` seconds long
-function Config.replayWatchTime(duration)
+-- How many real seconds it takes to watch the replays. `durations` = how long each
+-- room's recording is, best place first.
+function Config.replayWatchTime(durations)
 	local total = 0
-	for _, speed in Config.REPLAY_SPEEDS do
-		total += duration / #Config.REPLAY_SPEEDS / speed
+	for place, duration in durations do
+		total += Config.REPLAY_TITLE_TIME + duration / Config.REPLAY_SPEED_BY_PLACE[place]
 	end
 	return total
 end
