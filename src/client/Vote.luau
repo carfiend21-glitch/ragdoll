@@ -279,8 +279,12 @@ local function onResult(info)
 	local winner = names[info.winner] or "Someone"
 	title.Text = ("👑 %s WINS BEST SEQUENCE!"):format(winner:upper())
 	subtitle.Text = if info.coinFlip
-		then ("Still tied, so a coin flip decided it! +%d 💵"):format(NoobBucks.VOTE_REWARD)
-		else ("+%d Noob Buck 💵"):format(NoobBucks.VOTE_REWARD)
+		then ("Still tied, so a coin flip decided it! +%d 💵"):format(info.bucks or NoobBucks.VOTE_REWARD)
+		else ("+%d Noob Buck%s 💵%s"):format(
+			info.bucks or NoobBucks.VOTE_REWARD,
+			if (info.bucks or 1) == 1 then "" else "s",
+			if (info.bucks or 1) > NoobBucks.VOTE_REWARD then " (2x Noob Bucks!)" else ""
+		)
 	progress.Text = ""
 	local card = cards[info.winner]
 	if card then

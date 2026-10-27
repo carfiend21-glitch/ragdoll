@@ -29,6 +29,19 @@ Noob Bucks, so the pass feels like the "real" deal.
 | Rocket Launcher | R$ 99 | Already in the game (Robux only) |
 | Grenade (early) | R$ 25 | Already in the game (skip the achievement) |
 
+## 2x Noob Bucks (code ready: just paste the IDs)
+
+Doubles the Noob Bucks you get for **winning a round** and for being **voted best sequence**
+(1 becomes 2). It never doubles the cash you spend inside a round.
+
+| What | Suggested price | Type | Where the ID goes |
+| --- | --- | --- | --- |
+| 2x Noob Bucks forever | R$ 199 | Game Pass | `NoobBucks.DOUBLE_PASS.gamePassId` in `src/shared/NoobBucks.luau` |
+| 2x Noob Bucks for 1 hour | R$ 25 | Developer Product | `NoobBucks.BOOST.productId` in the same file |
+
+The 1-hour boost counts real time (it keeps ticking even if you leave), and buying it again
+adds another hour. Players who own the pass can't buy the boost (they're already at 2x).
+
 ## Black Hole and Mini Nuke: Robux-only price plan
 
 These two are the strongest weapons in the game, so they're the only exclusives you can't buy
@@ -50,7 +63,6 @@ For comparison, 100 Noob Bucks cost R$ 329.
 | Pass | Suggested price | What it does | Why it's fair |
 | --- | --- | --- | --- |
 | **Exclusive Arsenal** | R$ 1,499 | All 10 exclusive weapons at once (about 30% off buying them one by one) | Same weapons anyone can unlock |
-| **2x Noob Bucks** | R$ 249 | Round wins give 2 Noob Bucks instead of 1 | Only speeds up the shop, not rounds |
 | **VIP** | R$ 299 | Gold name on your room's sign, a "VIP" title, a gold trail, and +1 bonus Noob Buck every 5 rounds you play (win or lose) | Looks, plus a small reward for playing |
 | **Every Room Theme** | R$ 199 | All room themes, now and any added later | Looks only |
 | **Replay Star** | R$ 149 | Your room is always shown in the replays when you finish top 3, with a gold frame and your title on the card | Looks only (the top 3 are still picked by damage) |

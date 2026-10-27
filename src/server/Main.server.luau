@@ -108,6 +108,11 @@ end
 
 -- Robux purchases: Roblox tells us when someone buys a Game Pass
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, purchased)
+	if purchased and gamePassId == NoobBucks.DOUBLE_PASS.gamePassId and gamePassId > 0 then
+		PlayerData.grantDoubleBucks(player)
+		Remotes.Notify:FireClient(player, "🎉 2x NOOB BUCKS!", "Wins and best sequences now give double Noob Bucks, forever!")
+		return
+	end
 	local weapon = Weapons.byGamePass[gamePassId]
 	if not purchased or not weapon then
 		return
@@ -120,11 +125,19 @@ end)
 -- Spending Noob Bucks in the shop
 ShopService.start()
 
--- Robux purchases of Noob Buck packs (Developer Products). Roblox keeps asking until
--- we say "granted", so we only say it once the coins are safely saved.
+-- Robux purchases of Noob Buck packs and 2x boosts (Developer Products). Roblox keeps
+-- asking until we say "granted", so we only say it once it's safely saved.
 MarketplaceService.ProcessReceipt = function(receipt)
 	local pack = NoobBucks.byProductId[receipt.ProductId]
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
+	local boost = NoobBucks.BOOST
+	if boost.productId > 0 and receipt.ProductId == boost.productId then
+		if not player or not PlayerData.waitFor(player) or not PlayerData.grantBoost(player, receipt.PurchaseId, boost.seconds) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		Remotes.Notify:FireClient(player, "⚡ 2x NOOB BUCKS FOR 1 HOUR!", "Wins and best sequences give double Noob Bucks.")
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
 	if not pack or not player or not PlayerData.waitFor(player) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- they left: Roblox asks again next time
 	end

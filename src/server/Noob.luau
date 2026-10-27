@@ -236,6 +236,49 @@ function Noob:setGravity(scale)
 	end
 end
 
+-- Electrocuted (Tesla Coil): the whole noob flickers electric blue for `seconds`, and
+-- sparks burst off the body parts that got zapped
+local SHOCK_BLUE = Color3.fromRGB(120, 200, 255)
+function Noob:shock(parts, seconds)
+	self.shockUntil = os.clock() + seconds
+	for _, part in parts do
+		local sparks = part:FindFirstChild("ShockSparks")
+		if not sparks then
+			sparks = Instance.new("ParticleEmitter")
+			sparks.Name = "ShockSparks"
+			sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+			sparks.Color = ColorSequence.new(Color3.new(1, 1, 1), SHOCK_BLUE)
+			sparks.LightEmission = 1
+			sparks.Size = NumberSequence.new(0.5 * S, 0)
+			sparks.Lifetime = NumberRange.new(0.15, 0.35)
+			sparks.Speed = NumberRange.new(8, 16)
+			sparks.SpreadAngle = Vector2.new(180, 180)
+			sparks.Rate = 0 -- only bursts, below
+			sparks.Parent = part
+		end
+		sparks:Emit(20)
+	end
+	if self.model:FindFirstChild("Shock") then
+		return -- already flickering: it just lasts longer now
+	end
+	local glow = Instance.new("Highlight")
+	glow.Name = "Shock"
+	glow.FillColor = SHOCK_BLUE
+	glow.OutlineColor = Color3.new(1, 1, 1)
+	glow.Parent = self.model
+	task.spawn(function()
+		local on = true
+		-- (stops by itself if the noob is replaced, because the glow goes with it)
+		while glow.Parent and os.clock() < self.shockUntil do
+			glow.FillTransparency = if on then 0.1 else 0.8
+			glow.OutlineTransparency = if on then 0 else 0.7
+			on = not on
+			task.wait(0.05)
+		end
+		glow:Destroy()
+	end)
+end
+
 -- Frozen solid (Freeze Ray): an icy shine, and its joints go stiff so it tumbles
 -- like a statue. Every body part takes extra damage while it lasts (see Arena:hit).
 function Noob:setIced(iced)

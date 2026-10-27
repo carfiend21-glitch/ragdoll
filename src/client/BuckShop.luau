@@ -393,6 +393,94 @@ local function buildPacks(page, notice)
 	end
 end
 
+-- "12:05" (minutes:seconds) or "1:02:05"
+local function clockText(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	if seconds >= 3600 then
+		return ("%d:%02d:%02d"):format(seconds // 3600, seconds % 3600 // 60, seconds % 60)
+	end
+	return ("%d:%02d"):format(seconds // 60, seconds % 60)
+end
+
+-- The 2x Noob Bucks cards (Game Pass forever, or a 1-hour boost), under the packs.
+-- Returns a function that updates them (call it every second: the boost counts down).
+local function buildDoubler(page, notice)
+	text({
+		LayoutOrder = 2,
+		Size = UDim2.new(1, 0, 0, 26),
+		Font = TITLE_FONT,
+		Text = "⚡ 2x NOOB BUCKS: double for every win and best sequence!",
+		TextColor3 = GOLD,
+		Parent = page,
+	})
+	local row = create("Frame", { LayoutOrder = 3, Size = UDim2.new(1, 0, 0, 120), BackgroundTransparency = 1, Parent = page }, {
+		create("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 12),
+		}),
+	})
+	local function card(order, title, blurb)
+		local frame = create("Frame", { LayoutOrder = order, Size = UDim2.new(0.5, -6, 1, 0), BackgroundColor3 = Color3.fromRGB(70, 55, 20), Parent = row }, { rounded(10), outline(2, GOLD) })
+		text({ Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 30), Font = TITLE_FONT, Text = title, TextColor3 = GOLD, Parent = frame })
+		local info = text({ Position = UDim2.fromOffset(10, 38), Size = UDim2.new(1, -20, 0, 24), Text = blurb, TextStrokeTransparency = 1, Parent = frame })
+		local action = button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -20, 0, 36),
+			BackgroundColor3 = GREEN,
+			Text = "",
+			Parent = frame,
+		}, { rounded(8), padding(4) })
+		return info, action
+	end
+	local _, passButton = card(1, "♾️ FOREVER", "Game Pass: 2x Noob Bucks for good")
+	local boostInfo, boostButton = card(2, "⏱️ 1 HOUR", "Boost: 2x Noob Bucks for 1 hour")
+
+	passButton.Activated:Connect(function()
+		Sounds.playUI("Click")
+		local pass = NoobBucks.DOUBLE_PASS
+		if player:GetAttribute("DoubleBucks") then
+			return
+		elseif pass.gamePassId > 0 then
+			MarketplaceService:PromptGamePassPurchase(player, pass.gamePassId)
+		else
+			notice.Text = "The 2x Noob Bucks pass isn't on sale yet."
+		end
+	end)
+	boostButton.Activated:Connect(function()
+		Sounds.playUI("Click")
+		local boost = NoobBucks.BOOST
+		if player:GetAttribute("DoubleBucks") then
+			notice.Text = "You already have 2x Noob Bucks forever!"
+		elseif boost.productId > 0 then
+			MarketplaceService:PromptProductPurchase(player, boost.productId)
+		else
+			notice.Text = "The 1-hour boost isn't on sale yet."
+		end
+	end)
+
+	return function()
+		local hasPass = player:GetAttribute("DoubleBucks") == true
+		local left = (player:GetAttribute("BoostUntil") or 0) - os.time()
+		passButton.Text = if hasPass then "OWNED ✔" else ("R$ %d"):format(NoobBucks.DOUBLE_PASS.robux)
+		passButton.BackgroundColor3 = if hasPass then GREY else GREEN
+		if hasPass then
+			boostInfo.Text = "You have 2x forever: no boost needed!"
+			boostButton.Text = "NOT NEEDED"
+			boostButton.BackgroundColor3 = GREY
+		elseif left > 0 then
+			boostInfo.Text = ("⚡ ACTIVE: %s left. Buy again for +1 hour."):format(clockText(left))
+			boostButton.Text = ("R$ %d"):format(NoobBucks.BOOST.robux)
+			boostButton.BackgroundColor3 = GREEN
+		else
+			boostInfo.Text = "Boost: 2x Noob Bucks for 1 hour"
+			boostButton.Text = ("R$ %d"):format(NoobBucks.BOOST.robux)
+			boostButton.BackgroundColor3 = GREEN
+		end
+	end
+end
+
 function BuckShop.start()
 	local self = {
 		data = { achievements = {}, ownedWeapons = {}, shopItems = {}, equipped = {}, rentals = {} },
@@ -459,6 +547,27 @@ function BuckShop.start()
 		Parent = counter,
 	})
 	rounded(5).Parent = saleTag
+	-- A gold "2x" tag while their Noob Bucks are doubled (Game Pass or a 1-hour boost)
+	local doubleTag = text({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, 10, 1, -2),
+		Size = UDim2.fromOffset(64, 16),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = GOLD,
+		Font = TITLE_FONT,
+		Text = "⚡ 2x",
+		TextColor3 = INK,
+		TextStrokeTransparency = 1,
+		Visible = false,
+		Parent = counter,
+	})
+	rounded(5).Parent = doubleTag
+	local function refreshDouble()
+		local left = (player:GetAttribute("BoostUntil") or 0) - os.time()
+		local hasPass = player:GetAttribute("DoubleBucks") == true
+		doubleTag.Visible = hasPass or left > 0
+		doubleTag.Text = if hasPass then "⚡ 2x" else "⚡ 2x " .. clockText(left)
+	end
 
 	-- Up in the top-right corner, in Roblox's top bar strip if there's room
 	-- (so it never covers the game's own menus)
@@ -875,6 +984,9 @@ function BuckShop.start()
 	end
 	local bucksPage = newPage(BUCKS_TAB, "💵 Get Bucks", #ShopItems.CATEGORIES + 1, false)
 	buildPacks(bucksPage, notice)
+	local refreshDoubler = buildDoubler(bucksPage, notice)
+	refreshDoubler()
+	refreshDouble()
 	showTab(FEATURED_TAB)
 	showDeal()
 
@@ -882,13 +994,18 @@ function BuckShop.start()
 		Sounds.playUI("Click")
 		window.Visible = not window.Visible
 		notice.Text = ""
+		refreshDoubler()
 		showDeal()
 		refresh()
 	end)
-	-- Keep the deal's countdown ticking while the shop is open
+	-- Keep the deal's countdown (and the 2x boost's) ticking
 	task.spawn(function()
 		while true do
 			task.wait(1)
+			refreshDouble()
+			if window.Visible then
+				refreshDoubler()
+			end
 			if window.Visible then
 				showDeal()
 			end

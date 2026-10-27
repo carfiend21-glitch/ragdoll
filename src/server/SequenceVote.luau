@@ -118,8 +118,8 @@ local function tally(votes, options)
 end
 
 -- `entries` = the top 3 (best first): { player, name, damage }. `countdown` is the round
--- manager's countdown(phase, seconds, shouldStop). Returns the winner's user ID, or nil
--- if there was nobody to vote on.
+-- manager's countdown(phase, seconds, shouldStop). Returns the winner's user ID and the
+-- Noob Bucks they got, or nil if there was nobody to vote on.
 function SequenceVote.run(entries, countdown)
 	local candidates, options, info = {}, {}, {}
 	for place, entry in entries do
@@ -185,18 +185,21 @@ function SequenceVote.run(entries, countdown)
 	local coinFlip = #leaders > 1
 	local winnerId = leaders[math.random(#leaders)]
 	local winner = Players:GetPlayerByUserId(winnerId)
+	local bucks = 0
 	if winner then
-		PlayerData.addNoobBucks(winner, NoobBucks.VOTE_REWARD)
+		-- (double with the 2x Noob Bucks pass or boost)
+		bucks = NoobBucks.VOTE_REWARD * PlayerData.bucksMultiplier(winner)
+		PlayerData.addNoobBucks(winner, bucks)
 		Leaderboards.recordSequences(winner, PlayerData.addSequenceWin(winner))
 		Remotes.Notify:FireClient(
 			winner,
-			("🎬 +%d NOOB BUCK%s"):format(NoobBucks.VOTE_REWARD, if NoobBucks.VOTE_REWARD == 1 then "" else "S"),
+			("🎬 +%d NOOB BUCK%s"):format(bucks, if bucks == 1 then "" else "S"),
 			"The lobby voted your attacks the BEST SEQUENCE!"
 		)
 	end
-	Remotes.VoteUpdate:FireAllClients("result", { candidates = info, counts = counts, winner = winnerId, coinFlip = coinFlip })
+	Remotes.VoteUpdate:FireAllClients("result", { candidates = info, counts = counts, winner = winnerId, coinFlip = coinFlip, bucks = bucks })
 	countdown("Vote", REVEAL_TIME)
-	return winnerId
+	return winnerId, bucks
 end
 
 return SequenceVote

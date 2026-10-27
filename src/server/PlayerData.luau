@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local NoobBucks = require(Shared.NoobBucks)
 local ShopItems = require(Shared.ShopItems)
 local Weapons = require(Shared.Weapons)
 
@@ -76,6 +77,12 @@ function PlayerData.load(player)
 		end
 	end
 	local owned = loadOwnedWeapons(player)
+	-- The 2x Noob Bucks Game Pass
+	local doubleBucks = false
+	if NoobBucks.DOUBLE_PASS.gamePassId > 0 then
+		local success, result = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, NoobBucks.DOUBLE_PASS.gamePassId)
+		doubleBucks = success and result == true
+	end
 	if not player.Parent then
 		return -- they left while we were loading
 	end
@@ -83,6 +90,7 @@ function PlayerData.load(player)
 	local achievements = {}
 	local wins = 0
 	local sequenceWins = 0 -- times the lobby voted their attacks the best sequence
+	local boostUntil = 0 -- when their 1-hour 2x Noob Bucks boost runs out (os.time())
 	local bestRun = 0 -- most damage they've ever done in one run
 	local cash = Config.STARTING_CASH -- cash isn't saved: everyone starts fresh
 	local noobBucks = 0
@@ -139,6 +147,9 @@ function PlayerData.load(player)
 		if type(saved.sequenceWins) == "number" then
 			sequenceWins = saved.sequenceWins
 		end
+		if type(saved.boostUntil) == "number" then
+			boostUntil = saved.boostUntil
+		end
 	end
 
 	-- "leaderstats" shows up in the player list in the top-right corner:
@@ -152,6 +163,9 @@ function PlayerData.load(player)
 	leaderstats.Parent = player
 	player:SetAttribute("Cash", cash) -- shown in the bottom bar
 	player:SetAttribute("NoobBucks", noobBucks) -- shown in the top-right corner
+	-- 2x Noob Bucks (shown in the shop and next to the counter)
+	player:SetAttribute("DoubleBucks", doubleBucks)
+	player:SetAttribute("BoostUntil", boostUntil)
 
 	-- If loading failed we don't save either, so we never overwrite real progress with an empty save
 	profiles[player] = {
@@ -160,6 +174,8 @@ function PlayerData.load(player)
 		wins = wins,
 		winsValue = winsValue,
 		sequenceWins = sequenceWins,
+		doubleBucks = doubleBucks,
+		boostUntil = boostUntil,
 		bestRun = bestRun,
 		cash = cash,
 		canSave = loaded,
@@ -382,6 +398,44 @@ function PlayerData.grantBuckPurchase(player, purchaseId, coins)
 end
 
 -- Called right after a Robux purchase (Roblox remembers it, so it isn't saved here)
+-- 2 if this player's Noob Bucks rewards are doubled right now (Game Pass or 1-hour boost), else 1
+function PlayerData.bucksMultiplier(player)
+	local profile = profiles[player]
+	if not profile then
+		return 1
+	end
+	return NoobBucks.multiplier(profile.doubleBucks, profile.boostUntil, os.time())
+end
+
+-- They just bought the 2x Noob Bucks Game Pass (Roblox remembers it for next time)
+function PlayerData.grantDoubleBucks(player)
+	local profile = profiles[player]
+	if profile then
+		profile.doubleBucks = true
+		player:SetAttribute("DoubleBucks", true)
+	end
+end
+
+-- They bought a 2x Noob Bucks boost: `seconds` more of it, on top of any time left.
+-- Like Noob Buck packs, each purchase is only given once, and only counts as done once saved.
+function PlayerData.grantBoost(player, purchaseId, seconds)
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	if not profile.purchases[purchaseId] then
+		profile.purchases[purchaseId] = true
+		table.insert(profile.purchaseOrder, purchaseId)
+		profile.boostUntil = math.max(profile.boostUntil, os.time()) + seconds
+		profile.dirty = true
+		player:SetAttribute("BoostUntil", profile.boostUntil)
+	end
+	if not store or not profile.canSave then
+		return RunService:IsStudio() -- (see grantBuckPurchase)
+	end
+	return PlayerData.save(player)
+end
+
 function PlayerData.grantWeapon(player, weaponId)
 	local profile = profiles[player]
 	if profile then
@@ -502,6 +556,7 @@ function PlayerData.save(player)
 		data.achievements = achievements
 		data.wins = math.max(if type(data.wins) == "number" then data.wins else 0, profile.wins)
 		data.sequenceWins = math.max(if type(data.sequenceWins) == "number" then data.sequenceWins else 0, profile.sequenceWins)
+		data.boostUntil = math.max(if type(data.boostUntil) == "number" then data.boostUntil else 0, profile.boostUntil)
 		data.bestRun = math.max(if type(data.bestRun) == "number" then data.bestRun else 0, profile.bestRun)
 		-- (Saves from before the rename used "noobCoins": move those over)
 		local before = if type(data.noobBucks) == "number"

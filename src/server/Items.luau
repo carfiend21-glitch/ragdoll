@@ -103,6 +103,7 @@ local GLOVE_OUT = 2.2 -- how far the glove shoots out
 local TRAP_DAMAGE = 45
 local TRAP_HOLD = 1.6 -- seconds it holds on
 local TRAP_CLOSED = math.rad(80) -- how far the jaws swing up when it snaps
+local TRAP_FLING = 50 -- how fast it throws the noob back up when it lets go
 -- Shotgun
 local PELLETS = 6
 local PELLET_SPREAD = 0.12
@@ -124,6 +125,7 @@ local TESLA_RANGE = 13
 local TESLA_TARGETS = 3 -- body parts each zap can reach
 local TESLA_DAMAGE = 8
 local TESLA_JOLT = 18
+local SHOCK_TIME = 0.6 -- seconds the noob flickers after a zap
 -- Gravity flipper
 local FLIP_TIME = 0.9 -- seconds the noob falls UP each flip
 -- Freeze ray
@@ -1074,6 +1076,15 @@ local function fireTesla(arena, item)
 		part.AssemblyLinearVelocity += space:VectorToWorldSpace(Vector3.new(math.random() - 0.5, math.random(), 0)) * TESLA_JOLT
 		table.insert(hits, { part = part, amount = TESLA_DAMAGE })
 	end
+	-- The noob flickers electric blue and sparks fly off it
+	local zapped, numbers = {}, {}
+	for _, hit in hits do
+		table.insert(zapped, hit.part)
+		table.insert(numbers, table.find(arena.noob.parts, hit.part))
+	end
+	arena.noob:shock(zapped, SHOCK_TIME)
+	arena.recorder:event("shock", { parts = numbers, seconds = SHOCK_TIME })
+	Sounds.playAt("ShockBuzz", zapped[1].Position)
 	arena.ignoreImpactUntil = os.clock() + 0.1
 	Sounds.playAt("TeslaZap", item.position)
 	arena:hit("TeslaCoil", item, hits)
@@ -1361,18 +1372,26 @@ local function snapTrap(arena, item, bodyPart)
 	arena:hit("BearTrap", item, { { part = bodyPart, amount = TRAP_DAMAGE } })
 end
 
--- Holds the trapped body part down in the jaws, then lets go
+-- Holds the trapped body part down in the jaws, then springs open and flings the noob
+-- back up into the room
 local function stepTrap(arena, item, dt)
 	if not item.holdLeft then
 		return
 	end
 	item.holdLeft -= dt
-	local grip = (item.model:GetPivot() * CFrame.new(0, 0.6, 0)).Position
+	local pivot = item.model:GetPivot()
+	local grip = (pivot * CFrame.new(0, 0.6, 0)).Position
 	local part = item.held
 	part.AssemblyLinearVelocity = (grip - part.Position) * 10
+	-- Being held still isn't the end of the run (a run ends once the noob stops moving,
+	-- and that used to happen just before the trap let go)
+	arena.stillTime = 0
 	if item.holdLeft <= 0 then
 		item.holdLeft = nil
 		item.broken = true
+		arena.noob:launchAway(pivot.UpVector, TRAP_FLING, (math.random() - 0.5) * 20)
+		arena.ignoreImpactUntil = os.clock() + 0.15
+		Sounds.playAt("Spring", item.position)
 		task.delay(0.6, function()
 			arena:removeItem(item)
 		end)

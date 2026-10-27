@@ -541,6 +541,20 @@ local function handleEvent(cell, event)
 		flame(cell, event.position, event.direction)
 	elseif kind == "laser" then
 		laser(cell, event.position, event.target, event.color, event.width)
+	elseif kind == "shock" then
+		-- Zapped by the tesla coil: those body parts flicker electric blue for a moment
+		for _, number in event.parts or {} do
+			local part = cell.noobParts[number]
+			if part then
+				local color = part.Color
+				task.spawn(function()
+					for flicker = 1, 6 do
+						part.Color = if flicker % 2 == 1 then Color3.fromRGB(120, 200, 255) else color
+						task.wait(event.seconds / 6 / currentSpeed)
+					end
+				end)
+			end
+		end
 	elseif kind == "play" then
 		cell.running = true
 	elseif kind == "pause" then

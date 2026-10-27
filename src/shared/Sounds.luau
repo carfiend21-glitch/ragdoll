@@ -62,6 +62,7 @@ Sounds.LIST = {
 	HarpoonShot = { id = 9113059983, volume = 0.6, vary = 0.08, length = 1 }, -- "Air Chuff Hydraulic Pneumatic Air Burst 5"
 	CannonFire = { id = 3149249837, volume = 0.6, vary = 0.06, length = 2.2 }, -- "Cannon_Explode" (Roblox)
 	TeslaZap = { id = 9114277528, volume = 0.55, vary = 0.1, length = 1 }, -- "Electric Zaps 7"
+	ShockBuzz = { id = 9114246318, volume = 0.45, vary = 0.08, length = 0.7 }, -- "Electricity Static 1": the noob buzzing with electricity
 	GravityFlip = { id = 9117883683, volume = 0.5, vary = 0.05, length = 1.5 }, -- "Power Up And Down 4"
 	FreezeShot = { id = 9120984892, volume = 0.6, vary = 0.06, length = 0.9 }, -- "Zap High Pitch Glassy Reversed Whoosh 9"
 	IceCrack = { id = 9114865174, volume = 0.6, vary = 0.08, length = 1 }, -- "Ice Hammer Hitting Large Chunks 4"

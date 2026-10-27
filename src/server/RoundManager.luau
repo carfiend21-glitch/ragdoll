@@ -157,14 +157,14 @@ local function playRound(arenas)
 
 	-- Straight after the winner's replay, everyone else votes for the best sequence of
 	-- attacks out of the top 3 (see SequenceVote). The pick gets a Noob Buck.
-	local sequenceWinner = nil
+	local sequenceWinner, sequenceBucks = nil, 0
 	if longest > 1 then
 		local top = {}
 		for index = 1, #shown do
 			local entry = ranked[index]
 			table.insert(top, { player = entry.player, name = entry.name, damage = entry.arena.damage })
 		end
-		sequenceWinner = SequenceVote.run(top, countdown)
+		sequenceWinner, sequenceBucks = SequenceVote.run(top, countdown)
 	end
 
 	-- Most damage wins (a tie means everyone tied for first wins)
@@ -184,14 +184,16 @@ local function playRound(arenas)
 			local damage = entry.arena.damage
 			local winner = best > 0 and damage == best
 			local votedBest = entry.player.UserId == sequenceWinner
+			-- (double with the 2x Noob Bucks pass or boost)
+			local winBucks = if winner then NoobBucks.WIN_REWARD * PlayerData.bucksMultiplier(entry.player) else 0
 			if winner then
 				-- First place: +1 win (shown in the player list and the lobby leaderboard)
 				Leaderboards.recordWins(entry.player, PlayerData.addWin(entry.player))
 				-- ...and Noob Bucks
-				PlayerData.addNoobBucks(entry.player, NoobBucks.WIN_REWARD)
+				PlayerData.addNoobBucks(entry.player, winBucks)
 				Remotes.Notify:FireClient(
 					entry.player,
-					("💵 +%d NOOB BUCK%s"):format(NoobBucks.WIN_REWARD, if NoobBucks.WIN_REWARD == 1 then "" else "S"),
+					("💵 +%d NOOB BUCK%s"):format(winBucks, if winBucks == 1 then "" else "S"),
 					"For winning the round!"
 				)
 			end
@@ -199,7 +201,7 @@ local function playRound(arenas)
 				name = entry.name,
 				damage = damage,
 				winner = winner,
-				bucks = (if winner then NoobBucks.WIN_REWARD else 0) + (if votedBest then NoobBucks.VOTE_REWARD else 0),
+				bucks = winBucks + (if votedBest then sequenceBucks else 0),
 				bestSequence = votedBest,
 				userId = entry.player.UserId,
 			})
