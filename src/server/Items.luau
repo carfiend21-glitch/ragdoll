@@ -104,8 +104,17 @@ local function useUp(arena, item)
 	end
 end
 
+-- Cuts off the laser's charging whine (when it fires, or a run is paused or ends)
+local function stopLaserCharge(item)
+	if item.chargeSound then
+		item.chargeSound:Stop()
+		item.chargeSound = nil
+	end
+end
+
 -- A run ended: the weapon keeps whatever life it has left, ready for the next run
 function Items.resetForNextRun(item)
+	stopLaserCharge(item)
 	item.timer = nil
 	item.fuseTime = nil
 	item.burstLeft = 0
@@ -518,10 +527,13 @@ local function laserEffects(arena, from, to, hit)
 	end
 end
 
--- Before each shot the lens swells up and glows brighter and brighter, so you can
--- see the shot coming
+-- Before each shot the lens swells up and glows brighter and brighter, with a rising
+-- energy whine, so you can see and hear the shot coming
 local function chargeLaser(item)
 	local progress = if item.timer then math.clamp(1 - item.timer / LASER_CHARGE, 0, 1) else 0
+	if progress > 0 and not item.chargeSound then
+		item.chargeSound = Sounds.playAt("LaserCharge", item.position)
+	end
 	local grow = 1 + progress * 1.3
 	item.lens.Size = Vector3.new(item.lensSize.X, item.lensSize.Y * grow, item.lensSize.Z * grow)
 	item.lens.Color = LENS_COLOR:Lerp(Color3.fromRGB(255, 230, 230), progress)
@@ -539,9 +551,12 @@ local function fireLaser(arena, item)
 
 	laserEffects(arena, muzzle.Position, target, result ~= nil)
 	arena.recorder:event("laser", { position = muzzle.Position, target = target })
+	stopLaserCharge(item) -- the whine stops the moment it fires
+	Sounds.playAt("LaserBlast", item.position)
 	Sounds.playAt("LaserShot", item.position)
 
 	if result then
+		Sounds.playAt("LaserImpact", result.Position)
 		local part = result.Instance
 		part.AssemblyLinearVelocity += muzzle.LookVector * 12
 		arena.ignoreImpactUntil = os.clock() + 0.05
@@ -728,6 +743,7 @@ function Items.step(arena, item, dt)
 		if item.flames then
 			item.flames.Enabled = false
 		end
+		stopLaserCharge(item)
 		return -- paused
 	end
 

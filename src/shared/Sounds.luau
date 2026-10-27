@@ -37,8 +37,13 @@ Sounds.LIST = {
 	SawCut1 = { id = 9118775692, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 1"
 	SawCut2 = { id = 9118775709, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 2"
 	FlameBurst = { id = 9114446277, volume = 0.55, vary = 0.08 },
-	-- The classic sci-fi "pew": a sharp laser shot that drops in pitch
+	-- Laser cannon, in three layers so it sounds as big as it looks: a rising energy
+	-- whine while the lens charges (cut off when it fires), a hard whiplash blast plus
+	-- the classic "pew" when it fires, and a fiery rumble where the beam hits
+	LaserCharge = { id = 9125973984, volume = 0.45, vary = 0.04 }, -- "Spaceship Blast High Pitch Energy Charge Up"
+	LaserBlast = { id = 9114314919, volume = 0.85, vary = 0.06 }, -- "Energy Blasts 14"
 	LaserShot = { id = 9116226117, volume = 0.6, vary = 0.06 }, -- "Laser Blast 1001"
+	LaserImpact = { id = 9120006514, volume = 0.6, vary = 0.08 }, -- "Thruster Blast 6"
 	RocketLaunch = { id = 12222065, volume = 0.5, vary = 0.08 },
 	BigBoom = { id = 9114224354, volume = 0.6, vary = 0.05, lifetime = 7 },
 	-- The noob
@@ -127,6 +132,7 @@ end
 
 -- Plays a sound at a spot in the world (heard by anyone close enough).
 -- `volumeScale` makes it quieter or louder, e.g. for small vs big crashes.
+-- Returns the Sound, in case it needs stopping early.
 function Sounds.playAt(name, position, volumeScale)
 	local sound, info = newSound(name)
 	sound.Volume *= volumeScale or 1
@@ -143,6 +149,7 @@ function Sounds.playAt(name, position, volumeScale)
 	task.delay(info.lifetime or 4, function()
 		spot:Destroy()
 	end)
+	return sound
 end
 
 -- A looping sound stuck to a part (like a saw's whir), heard like Sounds.playAt.
