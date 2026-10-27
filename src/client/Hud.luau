@@ -19,6 +19,7 @@ local Sounds = require(Shared.Sounds)
 local Weapons = require(Shared.Weapons)
 
 local Layout = require(script.Parent.Layout)
+local WeaponIcon = require(script.Parent.WeaponIcon)
 
 local player = Players.LocalPlayer
 
@@ -308,7 +309,7 @@ function Hud:_buildShop()
 				BackgroundColor3 = Color3.fromRGB(55, 58, 70),
 				Parent = self.shop,
 			}, { rounded(8) })
-			text({ Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(48, 48), Text = weapon.icon, Parent = row })
+			WeaponIcon.create(weapon.id, row, UDim2.fromOffset(52, 52), UDim2.fromOffset(6, 6))
 			text({
 				Position = UDim2.fromOffset(64, 6),
 				Size = UDim2.new(1, -184, 0, 26),
@@ -521,13 +522,8 @@ function Hud:_buildBottomBar()
 				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			}),
 		})
-		text({
-			Position = UDim2.fromScale(0, 0.03),
-			Size = UDim2.fromScale(1, 0.45),
-			Text = weapon.icon,
-			TextStrokeTransparency = 1,
-			Parent = weaponButton,
-		})
+		-- The real weapon model, so the picture matches what you place
+		WeaponIcon.create(weapon.id, weaponButton, UDim2.fromScale(1, 0.48), UDim2.fromScale(0, 0.02))
 		text({
 			Position = UDim2.new(0, 3, 0.5, 0),
 			Size = UDim2.new(1, -6, 0.22, 0),

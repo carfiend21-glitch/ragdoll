@@ -17,6 +17,8 @@ local ShopItems = require(Shared.ShopItems)
 local Sounds = require(Shared.Sounds)
 local Weapons = require(Shared.Weapons)
 
+local WeaponIcon = require(script.Parent.WeaponIcon)
+
 local BuckShop = {}
 
 local player = Players.LocalPlayer
@@ -198,7 +200,7 @@ local function preview(item, parent)
 	if category == "NoobSkin" then
 		miniNoob(area, UDim2.fromScale(1, 1), nil, item)
 	elseif category == "Weapon" then
-		text({ Size = UDim2.fromScale(1, 1), Text = Weapons.byId[item.weapon].icon, TextStrokeTransparency = 1, Parent = area })
+		WeaponIcon.create(item.weapon, area, UDim2.fromScale(1, 1))
 	elseif category == "Blood" then
 		for index = 1, 3 do
 			create("Frame", {
