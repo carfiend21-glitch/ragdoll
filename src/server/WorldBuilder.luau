@@ -208,7 +208,7 @@ local HOW_TO_PLAY = {
 	"🧍 Each round you get your <b>own room</b> and a noob. You have <b>%d seconds</b>.",
 	"🛒 Pick weapons from the <b>bottom bar</b> and drag them into your room.",
 	"▶️ Press <b>PLAY</b>: weapons fire by themselves. Smash the noob for <b>points</b>!",
-	"💥 Combos, air time and torn-off limbs earn more points and cash.",
+	"💥 Combos, air time and knocking limbs off earn more points and cash.",
 	"🏆 Most points wins the round and a <b>Noob Buck</b> 💵.",
 	"🔓 Earn <b>achievements</b> to unlock new weapons. Drag weapons to 🗑️ to sell them.",
 }

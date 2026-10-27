@@ -112,9 +112,15 @@ end
 -- Seconds before a destroyed noob is replaced with a fresh one
 Config.RESPAWN_DELAY = 2
 
--- Blood splatter. Turning this off makes the game more kid-friendly.
--- (Blood affects the age rating you get from Roblox's Maturity questionnaire.)
-Config.BLOOD_ENABLED = true
+-- Family-friendly mode (for a lower age rating on Roblox's Maturity questionnaire):
+-- no blood or red stumps, limbs just pop off cleanly like a toy, softer words
+-- ("POPPED OFF!" instead of "TORN OFF!", no "DECAPITATED!") and a pop instead of a
+-- splat. Set it to false for the original blood-and-gore version (also saved on the
+-- git branch "blood-and-gore"). If you turn it off, answer the questionnaire again.
+Config.FAMILY_FRIENDLY = true
+
+-- Blood splatter (and the red stumps where limbs came off)
+Config.BLOOD_ENABLED = not Config.FAMILY_FRIENDLY
 
 -- Top of the lobby floor
 Config.LOBBY_POSITION = Vector3.new(0, 1, 0)

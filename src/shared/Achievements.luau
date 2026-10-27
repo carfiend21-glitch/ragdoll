@@ -26,7 +26,7 @@ Achievements.list = {
 	{ id = "WithoutTheHead", name = "Without the Head!", description = "Knock the noob's head off.", reward = 160 },
 	{ id = "Headshot", name = "Headshot!!!", description = "Hit the noob's head with an arrow." },
 	{ id = "ArrowInTheKnee", name = "Arrow in the Knee", description = "Hit the noob's leg with an arrow." },
-	{ id = "RedWire", name = "The Red Wire", description = "Tear off a limb with a land mine." },
+	{ id = "RedWire", name = "The Red Wire", description = "Knock a limb off with a land mine." },
 	{
 		id = "LordOfTheSeas",
 		name = "Lord of the Seas",

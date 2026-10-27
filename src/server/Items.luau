@@ -1367,7 +1367,9 @@ local function snapTrap(arena, item, bodyPart)
 		part.CFrame = pivot * hinge * CFrame.Angles(0, 0, side * TRAP_CLOSED) * hinge:Inverse() * rest
 	end
 	Sounds.playAt("TrapSnap", item.position)
-	Sounds.playAt("BoneCrunch", bodyPart.Position)
+	if not Config.FAMILY_FRIENDLY then
+		Sounds.playAt("BoneCrunch", bodyPart.Position)
+	end
 	arena.ignoreImpactUntil = os.clock() + 0.2
 	arena:hit("BearTrap", item, { { part = bodyPart, amount = TRAP_DAMAGE } })
 end

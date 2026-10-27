@@ -1309,11 +1309,15 @@ function Hud:showHit(reports, combo)
 			color
 		)
 
-		if report.outcome == "Torn" then
+		if report.outcome == "Torn" and Config.FAMILY_FRIENDLY then
+			self:showBanner(("%s POPPED OFF!"):format(partName))
+			self:_addFeedLine(("✖ %s POPPED OFF!"):format(partName), RED)
+		elseif report.outcome == "Torn" then
 			self:showBanner(("%s SNAPPED!"):format(report.joint:upper()))
 			self:_addFeedLine(("✖ %s TORN OFF!"):format(partName), RED)
 		elseif report.outcome == "Killed" then
-			self:showBanner(if report.part == "Head" then "DECAPITATED!" else "DESTROYED!")
+			local headOff = if Config.FAMILY_FRIENDLY then "HEAD POPPED OFF!" else "DECAPITATED!"
+			self:showBanner(if report.part == "Head" then headOff else "DESTROYED!")
 			self:_addFeedLine("☠ NOOB DESTROYED!", RED)
 		end
 	end

@@ -973,6 +973,10 @@ function BuckShop.start()
 	-- A tab for each category, then the Noob Buck packs
 	---------------------------------------------------------------------------
 	for order, category in ShopItems.CATEGORIES do
+		-- (no blood colors for sale while blood is switched off: see Config.FAMILY_FRIENDLY)
+		if category.id == "Blood" and not Config.BLOOD_ENABLED then
+			continue
+		end
 		local page = newPage(category.id, category.icon .. " " .. category.name, order, true)
 		local cardOrder = 0
 		for _, item in ShopItems.list do

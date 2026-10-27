@@ -466,13 +466,17 @@ local SURFACE_MEMORY = 0.25 -- seconds a touch still counts as "what it just hit
 local BULLET_SOUND_GAP = 0.12 -- the machine gun fires fast, so not every bullet thwacks
 
 -- Crashes sound like the surface they hit, louder and deeper the harder they were,
--- with a fleshy smack on top of big ones. Bullets thwack, and torn-off limbs splat.
+-- with a fleshy smack on top of big ones. Bullets thwack, and limbs that come off splat (or pop, in family-friendly mode).
 function Arena:_playHitSounds(source, reports)
 	local biggest = reports[1]
 	for _, report in reports do
 		if report.outcome then
-			Sounds.playAt("Splat", report.position)
-			Sounds.playAt("WetSplat", report.position, 0.8)
+			if Config.FAMILY_FRIENDLY then
+				Sounds.playAt("LimbPop", report.position) -- a toy-like pop
+			else
+				Sounds.playAt("Splat", report.position)
+				Sounds.playAt("WetSplat", report.position, 0.8)
+			end
 		end
 		if report.damage > biggest.damage then
 			biggest = report

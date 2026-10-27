@@ -26,7 +26,7 @@ local TIPS = {
 	"Keep the noob in the air to earn cash.",
 	"Drag a weapon into the 🗑️ to sell it back.",
 	"Win a round to earn a Noob Buck 💵.",
-	"Tear off all four limbs for a secret achievement...",
+	"Knock off all four limbs for a secret achievement...",
 	"Weapons get used up, so place them wisely.",
 }
 

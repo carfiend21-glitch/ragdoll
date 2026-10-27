@@ -94,6 +94,7 @@ Sounds.LIST = {
 	Punch = { id = 9117969687, volume = 0.45, vary = 0.12, length = 0.35 }, -- also each bullet hit
 	Splat = { id = 12222152, volume = 0.6, vary = 0.1 },
 	WetSplat = { id = 9113663393, volume = 0.5, vary = 0.1, length = 0.9 },
+	LimbPop = { id = 9117839042, volume = 0.6, vary = 0.1, length = 0.8 }, -- "Pop Airy 19": a limb popping off (family-friendly mode)
 	-- Placing weapons
 	Place = { id = 9125665716, volume = 0.4, vary = 0.08 },
 	-- Menus and the round
