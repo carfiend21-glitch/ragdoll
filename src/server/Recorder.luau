@@ -56,7 +56,8 @@ function Recorder:step()
 	end
 	self.nextSample = t + 1 / Config.REPLAY_SAMPLE_RATE
 
-	local origin = CFrame.new(self.arena.origin)
+	-- Stored in the room's own directions, so the replay can draw the room facing any way
+	local origin = self.arena.roomCFrame
 	local noob = {}
 	for index, part in self.arena.noob.parts do
 		noob[index] = origin:ToObjectSpace(part.CFrame)
@@ -80,7 +81,8 @@ end
 --   "damage" { damage = new total }      "hit" { position, points (score), damage (real), part }
 --   "boom" { position, radius }           "arrow" { part = body part number, offset = CFrame }
 --   "torn" { part = body part number }    "play" / "pause" / "restart"
--- Positions are stored relative to the room.
+-- Positions (`position`, `target`) and directions are given in the world and stored in
+-- the room's own directions.
 function Recorder:event(kind, fields)
 	if not self.recording then
 		return
@@ -89,8 +91,15 @@ function Recorder:event(kind, fields)
 	event.n = #self.events + 1
 	event.t = self:_time()
 	event.kind = kind
+	local room = self.arena.roomCFrame
 	if event.position then
-		event.position -= self.arena.origin
+		event.position = room:PointToObjectSpace(event.position)
+	end
+	if event.target then
+		event.target = room:PointToObjectSpace(event.target)
+	end
+	if event.direction then
+		event.direction = room:VectorToObjectSpace(event.direction)
 	end
 	table.insert(self.events, event)
 end

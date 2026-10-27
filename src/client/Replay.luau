@@ -1,4 +1,4 @@
--- After each round, plays back every room side by side (speeding up from 2x to 4x), so all
+-- After each round, plays back the top 3 rooms (by points) side by side, speeding up from 2x to 4x, so all
 -- players can watch each other. Shows everything that happened: the noob, the
 -- weapons, arrows and rockets flying, arrows sticking in, explosions, blood,
 -- torn-off limbs, damage numbers, and when players pressed PLAY / STOP / RESTART.
@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local ItemModels = require(Shared.ItemModels)
+local ShopItems = require(Shared.ShopItems)
 
 local player = Players.LocalPlayer
 
@@ -25,14 +26,6 @@ local ORANGE = Color3.fromRGB(240, 140, 30)
 local GOLD = Color3.fromRGB(255, 205, 50)
 local RED = Color3.fromRGB(230, 60, 50)
 local BLOOD = { Color3.fromRGB(150, 0, 0), Color3.fromRGB(120, 0, 5), Color3.fromRGB(175, 10, 10) }
-local NOOB_COLORS = {
-	Torso = BrickColor.new("Bright blue").Color,
-	Head = BrickColor.new("Bright yellow").Color,
-	["Left Arm"] = BrickColor.new("Bright yellow").Color,
-	["Right Arm"] = BrickColor.new("Bright yellow").Color,
-	["Left Leg"] = BrickColor.new("Br. yellowish green").Color,
-	["Right Leg"] = BrickColor.new("Br. yellowish green").Color,
-}
 local NOOB_SIZES = {
 	Torso = Vector3.new(2, 2, 1),
 	Head = Vector3.new(2, 1, 1),
@@ -74,8 +67,19 @@ function Replay.reset(roster)
 	recordings = {}
 	order = {}
 	for _, entry in roster do
-		recordings[entry.room] = { name = entry.name, frames = {}, events = {} }
+		-- `looks` = the player's Noob Buck looks: { NoobSkin = id, Blood = id, Room = id, Finish = id }
+		recordings[entry.room] = { name = entry.name, frames = {}, events = {}, looks = entry.looks or {} }
 		table.insert(order, entry.room)
+	end
+end
+
+-- The round ended: only these rooms (the top few, best first) get replayed
+function Replay.pick(rooms)
+	order = {}
+	for _, room in rooms do
+		if recordings[room] then
+			table.insert(order, room)
+		end
 	end
 end
 
@@ -107,27 +111,35 @@ local function newPart(parent, size, cframe, color, material, shape)
 	return part
 end
 
--- A copy of the test room (same look as server/WorldBuilder), with its floor center at 0,0,0
-local function buildRoom(parent)
+-- A copy of the test room (same look as server/WorldBuilder), with its floor center at
+-- 0,0,0, in the player's room theme
+local function buildRoom(parent, theme)
 	local size = Config.ROOM_SIZE
 	local W, H, D = size.X, size.Y, size.Z
 	local wall = Color3.fromRGB(205, 208, 214)
-	newPart(parent, Vector3.new(W + 2, 1, D), CFrame.new(0, -0.5, 0), Color3.fromRGB(95, 98, 105), Enum.Material.DiamondPlate)
-	newPart(parent, Vector3.new(W + 2, 1, D), CFrame.new(0, H + 0.5, 0), Color3.fromRGB(175, 178, 185))
-	newPart(parent, Vector3.new(1, H, D), CFrame.new(-W / 2 - 0.5, H / 2, 0), wall)
-	newPart(parent, Vector3.new(1, H, D), CFrame.new(W / 2 + 0.5, H / 2, 0), wall)
-	newPart(parent, Vector3.new(W + 2, H + 2, 1), CFrame.new(0, H / 2, -D / 2 - 0.5), Color3.fromRGB(232, 234, 238))
-	newPart(parent, Vector3.new(W, 1.5, 0.2), CFrame.new(0, 0.75, -D / 2 + 0.1), Color3.fromRGB(150, 153, 160))
-	for _, x in { -W / 4, W / 4 } do
-		newPart(parent, Vector3.new(4, 0.4, 2), CFrame.new(x, H - 0.2, 0), Color3.fromRGB(235, 232, 220))
+	local parts = {}
+	local function piece(name, partSize, cframe, color, material)
+		local part = newPart(parent, partSize, cframe, color, material)
+		part.Name = name
+		parts[part] = { color, material or Enum.Material.SmoothPlastic }
 	end
+	piece("Floor", Vector3.new(W + 2, 1, D), CFrame.new(0, -0.5, 0), Color3.fromRGB(95, 98, 105), Enum.Material.DiamondPlate)
+	piece("Ceiling", Vector3.new(W + 2, 1, D), CFrame.new(0, H + 0.5, 0), Color3.fromRGB(175, 178, 185))
+	piece("LeftWall", Vector3.new(1, H, D), CFrame.new(-W / 2 - 0.5, H / 2, 0), wall)
+	piece("RightWall", Vector3.new(1, H, D), CFrame.new(W / 2 + 0.5, H / 2, 0), wall)
+	piece("BackWall", Vector3.new(W + 2, H + 2, 1), CFrame.new(0, H / 2, -D / 2 - 0.5), Color3.fromRGB(232, 234, 238))
+	piece("Stripe", Vector3.new(W, 1.5, 0.2), CFrame.new(0, 0.75, -D / 2 + 0.1), Color3.fromRGB(150, 153, 160))
+	for _, x in { -W / 4, W / 4 } do
+		piece("Lamp", Vector3.new(4, 0.4, 2), CFrame.new(x, H - 0.2, 0), Color3.fromRGB(235, 232, 220))
+	end
+	ShopItems.applyRoomTheme(theme, parts)
 end
 
--- A classic noob (just for show, no physics). Returns its parts in Config.NOOB_PART_ORDER.
-local function buildNoob(parent)
+-- A noob in the player's skin (just for show, no physics). Returns its parts in Config.NOOB_PART_ORDER.
+local function buildNoob(parent, skin)
 	local parts = {}
 	for index, name in Config.NOOB_PART_ORDER do
-		local part = newPart(parent, NOOB_SIZES[name] * S, CFrame.new(0, -100, 0), NOOB_COLORS[name])
+		local part = newPart(parent, NOOB_SIZES[name] * S, CFrame.new(0, -100, 0), WHITE)
 		part.Name = name
 		parts[index] = part
 	end
@@ -140,6 +152,7 @@ local function buildNoob(parent)
 	face.Texture = "rbxasset://textures/face.png"
 	face.Face = Enum.NormalId.Front
 	face.Parent = head
+	ShopItems.applyNoobSkin(parts, skin)
 	return parts
 end
 
@@ -198,7 +211,7 @@ local function buildCell(parent, room, recording)
 	camera.FieldOfView = FOV
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
-	buildRoom(viewport)
+	buildRoom(viewport, ShopItems.equippedItem(recording.looks, "Room"))
 
 	local counter = label({
 		Position = UDim2.new(0, 12, 1, -52),
@@ -230,6 +243,7 @@ local function buildCell(parent, room, recording)
 		label({ Position = UDim2.fromScale(0, 0.4), Size = UDim2.new(1, 0, 0, 40), Text = "No replay", Parent = viewport })
 	end
 
+	local skin = ShopItems.equippedItem(recording.looks, "NoobSkin")
 	return {
 		room = room,
 		recording = recording,
@@ -240,7 +254,10 @@ local function buildCell(parent, room, recording)
 		counter = counter,
 		counterScale = counterScale,
 		status = status,
-		noobParts = buildNoob(viewport),
+		noobParts = buildNoob(viewport, skin),
+		noobColors = ShopItems.noobColors(skin), -- [body part name] = its color before burning
+		blood = ShopItems.equippedItem(recording.looks, "Blood"),
+		finish = ShopItems.equippedItem(recording.looks, "Finish"),
 		items = {}, -- [item id] = model
 		projectiles = {}, -- [kind] = reusable models for things in flight
 		stuck = {}, -- things glued to body parts (arrows, stumps): { part = index, offset, model }
@@ -297,7 +314,7 @@ local function splat(cell, position, normal, diameter)
 	local side = normal:Cross(if math.abs(normal.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis).Unit
 	local lift = if normal.Z > 0.9 then 0.25 else 0.04 -- clear of the stripe on the back wall
 	local cframe = CFrame.fromMatrix(position + normal * lift, normal, side)
-	local part = newPart(cell.viewport, Vector3.new(0.05, diameter, diameter), cframe, BLOOD[math.random(#BLOOD)], nil, Enum.PartType.Cylinder)
+	local part = newPart(cell.viewport, Vector3.new(0.05, diameter, diameter), cframe, ShopItems.bloodColor(cell.blood), nil, Enum.PartType.Cylinder)
 	table.insert(cell.splats, part)
 	if #cell.splats > MAX_SPLATS then
 		table.remove(cell.splats, 1):Destroy()
@@ -315,7 +332,7 @@ local function bleed(cell, position, points)
 		splat(cell, Vector3.new(x, y, -size.Z / 2), Vector3.zAxis, 0.4 + math.random() * math.min(points / 15, 2))
 	end
 	for _ = 1, math.clamp(math.floor(points / 6), 2, 8) do
-		local drop = newPart(cell.viewport, Vector3.one * (0.2 + math.random() * 0.2), CFrame.new(position), BLOOD[1], nil, Enum.PartType.Ball)
+		local drop = newPart(cell.viewport, Vector3.one * (0.2 + math.random() * 0.2), CFrame.new(position), ShopItems.bloodColor(cell.blood), nil, Enum.PartType.Ball)
 		local velocity = Vector3.new((math.random() - 0.5) * 24, math.random() * 15 + 3, (math.random() - 0.5) * 5)
 		table.insert(cell.drops, { part = drop, velocity = velocity, age = 0 })
 	end
@@ -495,7 +512,7 @@ end
 -- Resets the noob's colors (a fresh noob isn't burnt)
 local function resetColors(cell)
 	for index, part in cell.noobParts do
-		part.Color = NOOB_COLORS[Config.NOOB_PART_ORDER[index]]
+		part.Color = cell.noobColors[Config.NOOB_PART_ORDER[index]]
 	end
 end
 
@@ -515,7 +532,7 @@ local function handleEvent(cell, event)
 		addStumps(cell, event.part)
 	elseif kind == "burn" and event.part then
 		local name = Config.NOOB_PART_ORDER[event.part]
-		cell.noobParts[event.part].Color = NOOB_COLORS[name]:Lerp(CHARRED, event.scorched)
+		cell.noobParts[event.part].Color = cell.noobColors[name]:Lerp(CHARRED, event.scorched)
 	elseif kind == "flame" then
 		flame(cell, event.position, event.direction)
 	elseif kind == "laser" then
@@ -572,6 +589,7 @@ local function updateCell(cell, t)
 		local model = cell.items[id]
 		if not model then
 			model = ItemModels.build(weaponId)
+			ShopItems.applyFinish(model, cell.finish)
 			model.Parent = cell.viewport
 			cell.items[id] = model
 		end

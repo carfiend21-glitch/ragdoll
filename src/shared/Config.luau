@@ -37,7 +37,8 @@ function Config.replayWatchTime(duration)
 	return total
 end
 
-Config.ROOM_COUNT = 4
+Config.ROOM_COUNT = 8 -- one room per player (set the server size to 8 on the Creator Dashboard too)
+Config.REPLAYS_SHOWN = 3 -- only the top 3 rooms (by points) get replayed after a round
 Config.MAX_ITEMS_PER_ROOM = 8
 
 -- Weapon hits closer together than this (seconds) build a combo
@@ -168,30 +169,54 @@ function Config.formatCash(cash)
 	return "$" .. Config.formatScore(cash * Config.CASH_DISPLAY_MULTIPLIER)
 end
 
--- Center of room `index`'s floor. Rooms sit in a row behind the lobby.
+-- The rooms stand in a ring around the lobby, side by side with their back walls
+-- touching, and their open fronts (and cameras) facing out into the sky. There's a gap
+-- between the lobby's edge and the ring, so you can see the void below.
+-- How far a room's middle is from the middle of the lobby:
+local ROOM_HALF_WIDTH = (Config.ROOM_SIZE.X + 2 * Config.WALL_THICKNESS) / 2
+local RING_INSIDE = ROOM_HALF_WIDTH / math.tan(math.pi / Config.ROOM_COUNT) -- where the back walls meet
+Config.ROOM_RING_RADIUS = RING_INSIDE + Config.WALL_THICKNESS + Config.ROOM_SIZE.Z / 2
+Config.ROOM_FLOOR_Y = 2
+
+-- Where room `index` is, and which way it faces. In the room's own directions
+-- (its "room space"): X runs across the room, Y is up, and +Z points out of the
+-- open front toward the camera. The position is the middle of its floor.
+function Config.getRoomCFrame(index)
+	local angle = (index - 1) / Config.ROOM_COUNT * math.pi * 2
+	local center = Config.LOBBY_POSITION
+	local position = Vector3.new(
+		center.X + math.sin(angle) * Config.ROOM_RING_RADIUS,
+		Config.ROOM_FLOOR_Y,
+		center.Z + math.cos(angle) * Config.ROOM_RING_RADIUS
+	)
+	-- Looking at the lobby means the back (-Z) faces in and the front (+Z) faces out
+	return CFrame.lookAt(position, Vector3.new(center.X, Config.ROOM_FLOOR_Y, center.Z))
+end
+
+-- Center of room `index`'s floor
 function Config.getRoomOrigin(index)
-	return Vector3.new((index - (Config.ROOM_COUNT + 1) / 2) * 80, 2, -150)
+	return Config.getRoomCFrame(index).Position
 end
 
 -- Keeps a weapon of `size` inside room `index`, on the room's middle plane.
--- Floor weapons get snapped down onto the floor.
+-- Floor weapons get snapped down onto the floor. Returns a world position.
 function Config.clampToRoom(index, worldPosition, size, onFloor)
-	local origin = Config.getRoomOrigin(index)
-	local room = Config.ROOM_SIZE
+	local room = Config.getRoomCFrame(index)
+	local roomSize = Config.ROOM_SIZE
 	local half = size / 2
-	local relative = worldPosition - origin
-	local x = math.clamp(relative.X, -room.X / 2 + half.X, room.X / 2 - half.X)
-	local y = if onFloor then half.Y else math.clamp(relative.Y, half.Y, room.Y - half.Y)
-	return origin + Vector3.new(x, y, 0)
+	local relative = room:PointToObjectSpace(worldPosition)
+	local x = math.clamp(relative.X, -roomSize.X / 2 + half.X, roomSize.X / 2 - half.X)
+	local y = if onFloor then half.Y else math.clamp(relative.Y, half.Y, roomSize.Y - half.Y)
+	return room:PointToWorldSpace(Vector3.new(x, y, 0))
 end
 
 -- Sticks a flat weapon of `size` (its top facing up) onto whichever surface of
 -- room `index` is closest to `worldPosition`: floor, ceiling or a side wall.
 -- It's turned so its top faces into the room. Returns a CFrame.
 function Config.snapToSurface(index, worldPosition, size)
-	local origin = Config.getRoomOrigin(index)
+	local roomCFrame = Config.getRoomCFrame(index)
 	local room = Config.ROOM_SIZE
-	local relative = worldPosition - origin
+	local relative = roomCFrame:PointToObjectSpace(worldPosition)
 	local halfLength, halfThickness = size.X / 2, size.Y / 2
 	local alongFloor = math.clamp(relative.X, -room.X / 2 + halfLength, room.X / 2 - halfLength)
 	local alongWall = math.clamp(relative.Y, halfLength, room.Y - halfLength)
@@ -208,16 +233,17 @@ function Config.snapToSurface(index, worldPosition, size)
 			nearest = surface
 		end
 	end
-	return CFrame.new(origin + nearest.at) * CFrame.Angles(0, 0, nearest.turn)
+	return roomCFrame * CFrame.new(nearest.at) * CFrame.Angles(0, 0, nearest.turn)
 end
 
 -- Where (and which way round) a weapon goes when it's placed or dragged to
--- `worldPosition` in room `index`. Returns a CFrame.
+-- `worldPosition` in room `index`. Returns a CFrame, turned to face the way the room does.
 function Config.placementFor(index, weapon, worldPosition)
 	if weapon.anySurface then
 		return Config.snapToSurface(index, worldPosition, weapon.size)
 	end
-	return CFrame.new(Config.clampToRoom(index, worldPosition, weapon.size, weapon.onFloor))
+	local position = Config.clampToRoom(index, worldPosition, weapon.size, weapon.onFloor)
+	return CFrame.new(position) * Config.getRoomCFrame(index).Rotation
 end
 
 return Config

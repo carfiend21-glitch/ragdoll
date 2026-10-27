@@ -7,6 +7,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local ItemModels = require(Shared.ItemModels)
+local ShopItems = require(Shared.ShopItems)
 local Sounds = require(Shared.Sounds)
 
 local Items = {}
@@ -127,9 +128,11 @@ function Items.sellValue(item)
 	return math.floor(item.weapon.price * item.uses / item.weapon.uses)
 end
 
--- `placement` is a CFrame from Config.placementFor (where it goes, and which way round)
-function Items.create(weapon, id, placement, parent)
+-- `placement` is a CFrame from Config.placementFor (where it goes, and which way round).
+-- `finish` is the owner's weapon finish from ShopItems (just a look).
+function Items.create(weapon, id, placement, parent, finish)
 	local model = ItemModels.build(weapon.id)
+	ShopItems.applyFinish(model, finish)
 	model:SetAttribute("ItemId", id)
 	local spinParts = {}
 	for _, part in model:GetDescendants() do
@@ -233,7 +236,7 @@ function Items.detonate(arena, item)
 	-- A land mine launches the noob up into the air, the way a real one would
 	local noob = arena.noob
 	if blast.bounce and not noob.frozen and (noob.torso.Position - item.position).Magnitude <= blast.radius then
-		local away = noob.torso.Position.X - item.position.X
+		local away = arena.roomCFrame:VectorToObjectSpace(noob.torso.Position - item.position).X -- across the room
 		local sideways = math.clamp(away * 3, -12, 12) + (math.random() - 0.5) * 6
 		noob:bounceUp(blast.bounce, sideways)
 		arena.ignoreImpactUntil = os.clock() + 0.15
@@ -281,14 +284,13 @@ local function predictNoob(arena, from, speed)
 		if falling then
 			target -= Vector3.new(0, 0.5 * Config.NOOB_GRAVITY * t * t, 0)
 		end
-		-- It can't leave the room
-		local relative = target - arena.origin
-		target = arena.origin
-			+ Vector3.new(
-				math.clamp(relative.X, -half.X + 1, half.X - 1),
-				math.clamp(relative.Y, 1, Config.ROOM_SIZE.Y - 1),
-				math.clamp(relative.Z, -half.Z + 1, half.Z - 1)
-			)
+		-- It can't leave the room (worked out in the room's own directions)
+		local relative = arena.roomCFrame:PointToObjectSpace(target)
+		target = arena.roomCFrame:PointToWorldSpace(Vector3.new(
+			math.clamp(relative.X, -half.X + 1, half.X - 1),
+			math.clamp(relative.Y, 1, Config.ROOM_SIZE.Y - 1),
+			math.clamp(relative.Z, -half.Z + 1, half.Z - 1)
+		))
 	end
 	return target
 end
@@ -497,10 +499,13 @@ local function laserEffects(arena, from, to, hit)
 	end
 
 	if hit then
-		local back = (from - to).Unit
+		local space = arena.roomCFrame.Rotation
+		local back = space:VectorToObjectSpace((from - to).Unit)
 		for _ = 1, 8 do
 			-- Mostly bouncing back toward the cannon, spread out, and kept flat to the camera
+			-- (worked out in the room's directions, then turned back to the world's)
 			local spray = (back + Vector3.new(math.random() - 0.5, math.random() - 0.3, 0) * 1.6) * Vector3.new(1, 1, 0.2)
+			spray = space:VectorToWorldSpace(spray)
 			local spark = laserPart(arena.room, Vector3.new(0.12, 0.12, 0.5), CFrame.lookAt(to, to + spray), Color3.fromRGB(255, 200, 120))
 			local seconds = 0.25 + math.random() * 0.2
 			TweenService:Create(spark, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -533,7 +538,7 @@ local function fireLaser(arena, item)
 	local target = if result then result.Position else muzzle.Position + muzzle.LookVector * 60
 
 	laserEffects(arena, muzzle.Position, target, result ~= nil)
-	arena.recorder:event("laser", { position = muzzle.Position, target = target - arena.origin })
+	arena.recorder:event("laser", { position = muzzle.Position, target = target })
 	Sounds.playAt("LaserShot", item.position)
 
 	if result then
@@ -567,17 +572,20 @@ local function bounce(arena, item, bodyPart)
 
 	-- Launch straight away from the pad: up off the floor, sideways off a wall
 	-- (with a little lift so it arcs across the room), or down off the ceiling
-	local away = item.model:GetPivot().UpVector
+	-- (worked out in the room's own directions: X across, Y up, Z toward the camera)
+	local space = arena.roomCFrame.Rotation
+	local away = space:VectorToObjectSpace(item.model:GetPivot().UpVector)
 	local launch = away * BOUNCE_SPEED
 	if math.abs(away.X) > 0.5 then
 		launch += Vector3.new(0, BOUNCE_SPEED * 0.3, 0)
 	end
 	for _, part in arena.noob.parts do
-		local velocity = part.AssemblyLinearVelocity
+		local velocity = space:VectorToObjectSpace(part.AssemblyLinearVelocity)
 		-- Keep a bit of the speed it had along the pad, plus a little randomness
 		local along = velocity - away * velocity:Dot(away)
 		local wobble = Vector3.new(math.random() - 0.5, math.random() - 0.5, 0) * 10
-		part.AssemblyLinearVelocity = launch + Vector3.new(along.X, along.Y, along.Z * 0.4) * 0.5 + wobble
+		local launched = launch + Vector3.new(along.X, along.Y, along.Z * 0.4) * 0.5 + wobble
+		part.AssemblyLinearVelocity = space:VectorToWorldSpace(launched)
 	end
 	arena.noob:spin(8)
 	arena.ignoreImpactUntil = now + 0.1

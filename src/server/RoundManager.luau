@@ -1,10 +1,11 @@
--- The game loop: lobby countdown -> 90-second round -> 2x-4x speed replays of
--- every room -> winner and results -> repeat.
+-- The game loop: lobby countdown -> 90-second round -> 2x-4x speed replays of the
+-- top 3 rooms -> winner and the round leaderboard -> repeat.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local NoobBucks = require(Shared.NoobBucks)
 local Remotes = require(Shared.Remotes)
 
 local Leaderboards = require(script.Parent.Leaderboards)
@@ -59,10 +60,11 @@ local function countdown(phase, seconds, shouldStop)
 	end
 end
 
+-- Who's in which room, and their Noob Buck looks (so the replays look the same)
 local function rosterInfo()
 	local info = {}
 	for _, entry in roster do
-		table.insert(info, { room = entry.arena.index, name = entry.name })
+		table.insert(info, { room = entry.arena.index, name = entry.name, looks = entry.arena:lookIds() })
 	end
 	return info
 end
@@ -120,10 +122,8 @@ local function playRound(arenas)
 		return true -- everyone left
 	end)
 
-	local longest = 0
 	for _, entry in roster do
 		entry.arena:stopRound()
-		longest = math.max(longest, entry.arena.recorder:duration())
 	end
 	sendReplayPieces()
 	-- Spectators come back to the lobby (everyone watches the replays together)
@@ -131,7 +131,17 @@ local function playRound(arenas)
 		player:SetAttribute("Spectating", 0)
 	end
 
-	-- Everyone watches all the rooms' replays, speeding up from 2x to 4x
+	-- Everyone watches the replays of the top rooms (most points first), speeding up from 2x to 4x
+	local ranked = table.clone(roster)
+	table.sort(ranked, function(a, b)
+		return a.arena.damage > b.arena.damage
+	end)
+	local shown, longest = {}, 0
+	for index = 1, math.min(Config.REPLAYS_SHOWN, #ranked) do
+		table.insert(shown, ranked[index].arena.index)
+		longest = math.max(longest, ranked[index].arena.recorder:duration())
+	end
+	Remotes.ReplayPick:FireAllClients(shown)
 	if longest > 1 then
 		countdown("Replay", math.ceil(Config.replayWatchTime(longest)) + 2)
 	end
@@ -145,14 +155,31 @@ local function playRound(arenas)
 	end
 	local results = {}
 	for _, entry in roster do
+		-- A rented weapon lasts for one round
+		if entry.player.Parent and PlayerData.endRentals(entry.player) then
+			Remotes.DataSync:FireClient(entry.player, PlayerData.getSyncData(entry.player))
+		end
 		if entry.player.Parent then
 			local damage = entry.arena.damage
 			local winner = best > 0 and damage == best
 			if winner then
 				-- First place: +1 win (shown in the player list and the lobby leaderboard)
 				Leaderboards.recordWins(entry.player, PlayerData.addWin(entry.player))
+				-- ...and Noob Bucks
+				PlayerData.addNoobBucks(entry.player, NoobBucks.WIN_REWARD)
+				Remotes.Notify:FireClient(
+					entry.player,
+					("💵 +%d NOOB BUCK%s"):format(NoobBucks.WIN_REWARD, if NoobBucks.WIN_REWARD == 1 then "" else "S"),
+					"For winning the round!"
+				)
 			end
-			table.insert(results, { name = entry.name, damage = damage, winner = winner })
+			table.insert(results, {
+				name = entry.name,
+				damage = damage,
+				winner = winner,
+				bucks = if winner then NoobBucks.WIN_REWARD else 0,
+				userId = entry.player.UserId,
+			})
 		end
 	end
 	table.sort(results, function(a, b)

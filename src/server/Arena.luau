@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+local ShopItems = require(Shared.ShopItems)
 local Sounds = require(Shared.Sounds)
 local Weapons = require(Shared.Weapons)
 
@@ -42,9 +43,10 @@ function Arena.new(index, room, achievements)
 	local self = setmetatable({}, Arena)
 	self.index = index
 	self.room = room.model
-	self.label = room.label
+	self.labels = room.labels -- the sign inside the room, and the one outside facing the lobby
 	self.itemsFolder = room.model.Items
-	self.origin = Config.getRoomOrigin(index)
+	self.roomCFrame = Config.getRoomCFrame(index) -- where the room is and which way it faces
+	self.origin = self.roomCFrame.Position -- middle of the floor
 	self.achievements = achievements
 	self.owner = nil
 	self.active = false
@@ -59,18 +61,56 @@ function Arena.new(index, room, achievements)
 	self.recorder = Recorder.new(self)
 	self:resetScore()
 
+	-- The room's classic look, so a room theme can be put on and taken off again
+	self.roomParts = {}
+	for _, part in self.room:GetChildren() do
+		if part:IsA("BasePart") and part.Name ~= "Glass" and part.Name ~= "Sign" and part.Name ~= "OutsideSign" then
+			self.roomParts[part] = { part.Color, part.Material }
+		end
+	end
+
 	-- The noob floats in the middle of the room until PLAY is pressed.
 	-- Pressing PLAY starts a "run": weapons are locked until the run ends.
 	self.running = false
 	self.inRun = false
 	self.runDamage = 0
 	self.stillTime = 0
-	self.noob = Noob.new(self.origin + Vector3.new(0, Config.ROOM_SIZE.Y / 2, 0), self.room)
+	self.noob = Noob.new(self.roomCFrame * CFrame.new(0, Config.ROOM_SIZE.Y / 2, 0), self.room)
 	self.noob.onTouched = function(bodyPart, other)
 		self:_onNoobTouched(bodyPart, other)
 	end
+	self:_applyLooks({})
 	self:respawnNoob()
 	return self
+end
+
+-- Dresses the room in the owner's Noob Buck looks (`equipped` = { [category] = item id }):
+-- noob skin, blood color, room theme and weapon finish. {} = all classic.
+function Arena:_applyLooks(equipped)
+	self.looks = {}
+	for _, category in { "NoobSkin", "Blood", "Room", "Finish" } do
+		self.looks[category] = ShopItems.equippedItem(equipped, category)
+	end
+	ShopItems.applyRoomTheme(self.looks.Room, self.roomParts)
+	self.noob:setSkin(self.looks.NoobSkin)
+	-- Blood is drawn on players' screens, so they read the color from here
+	self.room:SetAttribute("BloodStyle", self.looks.Blood.id)
+end
+
+-- Writes on both of the room's name signs (inside, and outside facing the lobby)
+function Arena:_setLabel(text)
+	for _, label in self.labels do
+		label.Text = text
+	end
+end
+
+-- The look ids, for the replays: { NoobSkin = id, Blood = id, Room = id, Finish = id }
+function Arena:lookIds()
+	local ids = {}
+	for category, item in self.looks do
+		ids[category] = item.id
+	end
+	return ids
 end
 
 function Arena:resetScore()
@@ -148,11 +188,12 @@ function Arena:startRound(player)
 	self:clearItems()
 	self:resetScore()
 	self:_setInRun(false)
+	self:_applyLooks(PlayerData.getEquipped(player))
 	self:respawnNoob()
 	self.owner = player
 	self.active = true
 	PlayerData.resetCash(player) -- everyone starts each round with the same small amount
-	self.label.Text = ("ROOM %d: %s"):format(self.index, player.DisplayName)
+	self:_setLabel(("ROOM %d: %s"):format(self.index, player.DisplayName))
 	self.recorder:start()
 end
 
@@ -181,8 +222,9 @@ function Arena:clear()
 	self:clearItems()
 	self:resetScore()
 	self:_setInRun(false)
+	self:_applyLooks({})
 	self:respawnNoob()
-	self.label.Text = "ROOM " .. self.index
+	self:_setLabel("ROOM " .. self.index)
 end
 
 function Arena:clearItems()
@@ -208,7 +250,7 @@ end
 function Arena:_addItem(weapon, placement)
 	self.nextItemId += 1
 	local id = tostring(self.nextItemId)
-	self.items[id] = Items.create(weapon, id, placement, self.itemsFolder)
+	self.items[id] = Items.create(weapon, id, placement, self.itemsFolder, self.looks.Finish)
 	self.itemCount += 1
 end
 
@@ -503,7 +545,7 @@ function Arena:step(dt)
 	self.recorder:step()
 
 	local noob = self.noob
-	local relative = noob.torso.Position - self.origin
+	local relative = self.roomCFrame:PointToObjectSpace(noob.torso.Position)
 	local size = Config.ROOM_SIZE
 	if
 		relative ~= relative -- NaN: physics went haywire

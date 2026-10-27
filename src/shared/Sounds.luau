@@ -2,6 +2,7 @@
 -- (Roblox, ProSoundEffects and APMOfficial), so they work in any game.
 -- `volume` is kept gentle on purpose, and `vary` randomly nudges the pitch a little
 -- each time so repeated sounds (like the machine gun) don't get grating.
+local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
@@ -67,10 +68,35 @@ Sounds.LIST = {
 	FinalTicks = { id = 1835342628, volume = 0.3, vary = 0 }, -- "Deadly Heist Clock Ticking Double Time" (APM)
 }
 
--- Room sounds can be heard from your own room's camera, but fade out before the
--- next room over, so you don't hear other players' rooms (or the rooms from the lobby)
-local HEARING_FULL = 90
-local HEARING_MAX = 118
+-- Room sounds can be heard from your own room's camera (about 80-100 studs out in
+-- front of it), but fade out before the rooms next door (about 112 studs away)
+local HEARING_FULL = 100
+local HEARING_MAX = 110
+
+-- Every sound from the rooms goes through this group. In the lobby, which sits in the
+-- middle of the ring of rooms, players' screens turn it down (see Sounds.setRoomVolume).
+local function roomSoundGroup()
+	local group = SoundService:FindFirstChild("RoomSounds")
+	if not group then
+		group = Instance.new("SoundGroup")
+		group.Name = "RoomSounds"
+		group.Parent = SoundService
+	end
+	return group
+end
+
+-- How loud the rooms are on this player's screen (1 = full). Players' devices only.
+-- (Changing it on a player's device only changes it for them.)
+function Sounds.setRoomVolume(volume)
+	local group = SoundService:FindFirstChild("RoomSounds")
+	if group then
+		group.Volume = volume
+	end
+end
+-- The server makes the group straight away, so it's there for everyone
+if RunService:IsServer() then
+	roomSoundGroup()
+end
 
 local function newSound(name)
 	local info = Sounds.LIST[name]
@@ -90,6 +116,7 @@ function Sounds.playAt(name, position, volumeScale)
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = HEARING_FULL
 	sound.RollOffMaxDistance = HEARING_MAX
+	sound.SoundGroup = roomSoundGroup()
 	local spot = Instance.new("Attachment")
 	spot.Name = "Sound"
 	spot.Parent = Workspace.Terrain
@@ -109,6 +136,7 @@ function Sounds.newLoop(name, part)
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = HEARING_FULL
 	sound.RollOffMaxDistance = HEARING_MAX
+	sound.SoundGroup = roomSoundGroup()
 	sound.Parent = part
 	return sound
 end

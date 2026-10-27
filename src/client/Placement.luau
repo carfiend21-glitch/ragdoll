@@ -50,11 +50,13 @@ end
 -- Where a ray from the screen meets the middle of the room
 -- (everything gets placed on that flat middle "sheet", like the 2D original)
 local function pointInRoom(ray, room)
-	local planeZ = Config.getRoomOrigin(room).Z
-	if math.abs(ray.Direction.Z) < 1e-4 then
+	local roomCFrame = Config.getRoomCFrame(room)
+	local facing = roomCFrame.ZVector -- the sheet faces the camera, whichever way the room is turned
+	local along = ray.Direction:Dot(facing)
+	if math.abs(along) < 1e-4 then
 		return nil
 	end
-	local distance = (planeZ - ray.Origin.Z) / ray.Direction.Z
+	local distance = (roomCFrame.Position - ray.Origin):Dot(facing) / along
 	if distance <= 0 then
 		return nil
 	end

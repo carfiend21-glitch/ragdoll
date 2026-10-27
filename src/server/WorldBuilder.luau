@@ -327,13 +327,17 @@ function WorldBuilder.buildRooms()
 	local rooms = {}
 
 	for index = 1, Config.ROOM_COUNT do
-		local origin = Config.getRoomOrigin(index)
+		-- Everything below is laid out in the room's own directions (see Config.getRoomCFrame)
+		local roomCFrame = Config.getRoomCFrame(index)
+		local function at(offset)
+			return roomCFrame * CFrame.new(offset)
+		end
 		local room = Instance.new("Model")
 		room.Name = "Room" .. index
 
 		-- `kind` is what the noob hit, used for achievements ("Floor", "Wall", "Ceiling")
 		local function surface(name, kind, partSize, offset, color, material)
-			local part = newPart(room, name, partSize, CFrame.new(origin + offset), color, material)
+			local part = newPart(room, name, partSize, at(offset), color, material)
 			part.CustomPhysicalProperties = WALL_PHYSICS
 			if kind then
 				part:SetAttribute("Surface", kind)
@@ -355,15 +359,20 @@ function WorldBuilder.buildRooms()
 		glass.CanQuery = false
 
 		-- Stripe along the bottom of the back wall
-		newDecor(room, "Stripe", Vector3.new(W, 1.5, 0.2), CFrame.new(origin + Vector3.new(0, 0.75, -D / 2 + 0.1)), Color3.fromRGB(150, 153, 160))
+		newDecor(room, "Stripe", Vector3.new(W, 1.5, 0.2), at(Vector3.new(0, 0.75, -D / 2 + 0.1)), Color3.fromRGB(150, 153, 160))
 
 		-- Name sign at the top of the back wall
-		local signPart = newDecor(room, "Sign", Vector3.new(16, 2, 0.2), CFrame.new(origin + Vector3.new(0, H - 2, -D / 2 + 0.1)), Color3.fromRGB(35, 40, 60))
+		local signPart = newDecor(room, "Sign", Vector3.new(16, 2, 0.2), at(Vector3.new(0, H - 2, -D / 2 + 0.1)), Color3.fromRGB(35, 40, 60))
 		local label = newSign(signPart, Enum.NormalId.Back, "ROOM " .. index, Color3.new(1, 1, 1))
+
+		-- A big sign on the outside of the back wall, facing the lobby, so people in
+		-- the lobby can see whose room is whose
+		local outsidePart = newDecor(room, "OutsideSign", Vector3.new(30, 5, 0.4), at(Vector3.new(0, H - 5, -D / 2 - t - 0.2)), Color3.fromRGB(35, 40, 60))
+		local outsideLabel = newSign(outsidePart, Enum.NormalId.Front, "ROOM " .. index, Color3.new(1, 1, 1))
 
 		-- Ceiling lamps are just for looks: real lights made the room glaringly bright
 		for _, x in { -W / 4, W / 4 } do
-			newDecor(room, "Lamp", Vector3.new(4, 0.4, 2), CFrame.new(origin + Vector3.new(x, H - 0.2, 0)), Color3.fromRGB(235, 232, 220))
+			newDecor(room, "Lamp", Vector3.new(4, 0.4, 2), at(Vector3.new(x, H - 0.2, 0)), Color3.fromRGB(235, 232, 220))
 		end
 
 		local items = Instance.new("Folder")
@@ -371,7 +380,7 @@ function WorldBuilder.buildRooms()
 		items.Parent = room
 
 		room.Parent = folder
-		rooms[index] = { model = room, label = label }
+		rooms[index] = { model = room, labels = { label, outsideLabel } }
 	end
 
 	folder.Parent = Workspace

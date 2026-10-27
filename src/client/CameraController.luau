@@ -52,9 +52,10 @@ local function roomView(room, viewport, spectating)
 	-- so slide the camera sideways/up instead of turning it, which keeps the view flat
 	local shiftX = (area.x + area.width / 2) - viewport.X / 2
 	local shiftY = (area.y + area.height / 2) - viewport.Y / 2
-	local roomFront = Config.getRoomOrigin(room) + Vector3.new(0, size.Y / 2, size.Z / 2)
-	local position = roomFront + Vector3.new(-shiftX / pixelsPerStud, shiftY / pixelsPerStud, distance)
-	return CFrame.new(position) -- looking straight ahead, into the room
+	-- In the room's own directions (+Z comes out of its open front), so this works
+	-- whichever way round the ring the room faces
+	local offset = Vector3.new(-shiftX / pixelsPerStud, size.Y / 2 + shiftY / pixelsPerStud, size.Z / 2 + distance)
+	return Config.getRoomCFrame(room) * CFrame.new(offset) -- looking straight into the room
 end
 
 function CameraController.start()

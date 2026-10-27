@@ -7,6 +7,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local ItemModels = require(Shared.ItemModels)
+local ShopItems = require(Shared.ShopItems)
 
 local Noob = {}
 Noob.__index = Noob
@@ -17,14 +18,7 @@ local BLUE = BrickColor.new("Bright blue").Color
 local GREEN = BrickColor.new("Br. yellowish green").Color
 local BLOOD = Color3.fromRGB(130, 0, 0)
 local CHARRED = Color3.fromRGB(35, 30, 28)
-local NOOB_COLORS = {
-	Torso = BLUE,
-	Head = YELLOW,
-	["Left Arm"] = YELLOW,
-	["Right Arm"] = YELLOW,
-	["Left Leg"] = GREEN,
-	["Right Leg"] = GREEN,
-}
+local CLASSIC_SKIN = ShopItems.byId.ClassicNoob
 
 -- density, friction, elasticity (bounciness), friction weight, elasticity weight
 local BODY_PHYSICS = PhysicalProperties.new(0.7, 0.4, 0.4, 1, 1)
@@ -94,10 +88,14 @@ local function addStump(part, spec)
 	stump.Parent = part
 end
 
--- `parent` is the room model; the noob's health is shown in its attributes
-function Noob.new(spawnPosition, parent)
+-- `spawnCFrame` = the middle of the room, turned the way the room faces (its +Z
+-- points at the camera). `parent` is the room model; the noob's health is shown in its attributes.
+function Noob.new(spawnCFrame, parent)
 	local self = setmetatable({}, Noob)
-	self.spawnPosition = spawnPosition
+	self.spawnCFrame = spawnCFrame
+	-- The room's directions: X across the room, Y up, Z toward the camera.
+	-- Pushes are mostly kept flat to the camera so the noob stays in view.
+	self.space = spawnCFrame.Rotation
 	self.parent = parent
 	self.onTouched = nil -- set by the room: function(bodyPart, otherPart)
 	self:spawn()
@@ -114,7 +112,7 @@ function Noob:spawn()
 	model.Name = "Noob"
 
 	-- Face the camera, with a small random lean so it never falls the same way twice
-	local base = CFrame.new(self.spawnPosition) * CFrame.Angles(0, math.pi, math.rad(math.random(-10, 10)))
+	local base = self.spawnCFrame * CFrame.Angles(0, math.pi, math.rad(math.random(-10, 10)))
 	local function bodyPart(name, size, offset, color)
 		return newBodyPart(model, name, size * S, base * CFrame.new(offset * S), color)
 	end
@@ -181,6 +179,9 @@ function Noob:spawn()
 		lift.Parent = part
 	end
 
+	-- Dressed in the room owner's noob skin (bought with Noob Bucks)
+	ShopItems.applyNoobSkin(self.parts, self.skin or CLASSIC_SKIN)
+
 	model.PrimaryPart = torso
 	model.Parent = self.parent
 
@@ -193,6 +194,11 @@ function Noob:spawn()
 		end)
 	end
 	self:_publishHealth()
+end
+
+-- The look of the next noob that spawns (a noob skin from ShopItems)
+function Noob:setSkin(skin)
+	self.skin = skin
 end
 
 -- Sets a body part on fire for `seconds`. Returns true if it wasn't already burning.
@@ -236,7 +242,7 @@ end
 function Noob:scorch(part, amount)
 	local scorched = math.min(1, (self.scorched[part] or 0) + amount)
 	self.scorched[part] = scorched
-	local original = NOOB_COLORS[part.Name]
+	local original = ShopItems.noobColors(self.skin or CLASSIC_SKIN)[part.Name]
 	part.Color = original:Lerp(CHARRED, scorched)
 	return scorched
 end
@@ -314,7 +320,7 @@ function Noob:detach(part)
 	self.attached[part] = false
 	self.health[Config.BODY_PARTS_BY_NAME[part.Name].key] = 0
 	joint:Destroy()
-	part.AssemblyLinearVelocity += Vector3.new((math.random() - 0.5) * 15, 10, 0)
+	part.AssemblyLinearVelocity += self.space:VectorToWorldSpace(Vector3.new((math.random() - 0.5) * 15, 10, 0))
 	if Config.BLOOD_ENABLED then
 		local stump = Config.BODY_PARTS_BY_NAME[part.Name].stump
 		addStump(self.torso, stump.torso)
@@ -353,17 +359,18 @@ end
 -- Sets it spinning (around the axis facing the camera, so you can see it)
 function Noob:spin(strength)
 	for _, part in self.parts do
-		part.AssemblyAngularVelocity += Vector3.new(0, 0, (math.random() - 0.5) * 2 * strength)
+		part.AssemblyAngularVelocity += self.space.ZVector * (math.random() - 0.5) * 2 * strength
 	end
 end
 
 -- Throws the whole noob straight up off something underneath it (a land mine).
 -- Any speed it had falling down is thrown away first, so it always really bounces
--- instead of the fall swallowing the kick. `sideways` nudges it away from the blast.
+-- instead of the fall swallowing the kick. `sideways` nudges it away from the blast
+-- (across the room).
 function Noob:bounceUp(speed, sideways)
 	for _, part in self.parts do
-		local velocity = part.AssemblyLinearVelocity
-		part.AssemblyLinearVelocity = Vector3.new(velocity.X * 0.4 + sideways, speed, velocity.Z * 0.2)
+		local velocity = self.space:VectorToObjectSpace(part.AssemblyLinearVelocity)
+		part.AssemblyLinearVelocity = self.space:VectorToWorldSpace(Vector3.new(velocity.X * 0.4 + sideways, speed, velocity.Z * 0.2))
 	end
 	self:spin(10)
 end
@@ -378,10 +385,11 @@ function Noob:blast(center, radius, power)
 		if distance < radius then
 			local direction = if distance > 0.1 then offset.Unit else Vector3.yAxis
 			-- Mostly sideways/up (we watch from the side), with an extra upward kick for fun
-			direction = Vector3.new(direction.X, direction.Y + 0.5, direction.Z * 0.2).Unit
+			direction = self.space:VectorToObjectSpace(direction)
+			direction = self.space:VectorToWorldSpace(Vector3.new(direction.X, direction.Y + 0.5, direction.Z * 0.2).Unit)
 			local strength = power * (0.4 + 0.6 * (1 - distance / radius))
 			part.AssemblyLinearVelocity += direction * strength
-			part.AssemblyAngularVelocity += Vector3.new(0, 0, (math.random() - 0.5) * 20)
+			part.AssemblyAngularVelocity += self.space.ZVector * (math.random() - 0.5) * 20
 			if self.attached[part] then
 				table.insert(reached, { part = part, distance = distance })
 			end

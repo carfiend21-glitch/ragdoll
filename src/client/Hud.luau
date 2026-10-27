@@ -377,7 +377,7 @@ function Hud:_buildTopBar()
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -8, 0, 5),
 		Size = UDim2.fromOffset(150, 34),
-		BackgroundColor3 = Color3.fromRGB(70, 75, 90),
+		BackgroundColor3 = RED,
 		Text = "↺ RESTART",
 		Parent = self.topContent,
 	}, { rounded(6), padding(5) })
@@ -866,7 +866,7 @@ function Hud:_buildPopups()
 	self.results = create("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(380, 0),
+		Size = UDim2.fromOffset(460, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundColor3 = DARK,
 		Visible = false,
@@ -1344,13 +1344,14 @@ function Hud:showToast(title, subtitle)
 	end)
 end
 
+-- The round leaderboard at the very end: everyone who played, most points first,
+-- with the Noob Bucks the winner earned
 function Hud:showResults(results)
 	for _, child in self.results:GetChildren() do
-		if child:IsA("TextLabel") then
+		if child:IsA("GuiObject") then
 			child:Destroy()
 		end
 	end
-	-- Whoever did the most damage wins
 	local winners = {}
 	for _, entry in results do
 		if entry.winner then
@@ -1359,20 +1360,61 @@ function Hud:showResults(results)
 	end
 	text({
 		LayoutOrder = 0,
-		Size = UDim2.new(1, 0, 0, 52),
+		Size = UDim2.new(1, 0, 0, 40),
 		Font = TITLE_FONT,
-		Text = if #winners > 0 then "🏆 WINNER: " .. table.concat(winners, " & ") .. "!" else "ROUND IS OVER",
+		Text = "🏆 ROUND LEADERBOARD",
+		TextColor3 = ORANGE,
+		Parent = self.results,
+	})
+	text({
+		LayoutOrder = 1,
+		Size = UDim2.new(1, 0, 0, 30),
+		Font = TITLE_FONT,
+		Text = if #winners > 0 then "WINNER: " .. table.concat(winners, " & ") .. "!" else "NO WINNER THIS TIME",
 		TextColor3 = YELLOW,
 		Parent = self.results,
 	})
 	local medals = { "🥇", "🥈", "🥉" }
 	for rank, entry in results do
-		text({
-			LayoutOrder = rank,
-			Size = UDim2.new(1, 0, 0, 34),
-			Text = ("%s %s - %s damage"):format(medals[rank] or ("#" .. rank), entry.name, Config.formatScore(entry.damage)),
-			TextColor3 = if entry.winner then YELLOW else WHITE,
+		local isMe = entry.userId == player.UserId
+		local row = create("Frame", {
+			LayoutOrder = 1 + rank,
+			Size = UDim2.new(1, 0, 0, 32),
+			BackgroundColor3 = if entry.winner then Color3.fromRGB(80, 65, 20) elseif isMe then Color3.fromRGB(40, 70, 120) else Color3.fromRGB(55, 58, 70),
 			Parent = self.results,
+		}, { rounded(6) })
+		local color = if entry.winner then YELLOW else WHITE
+		text({
+			Position = UDim2.fromOffset(6, 3),
+			Size = UDim2.new(0, 40, 1, -6),
+			Text = medals[rank] or ("#" .. rank),
+			TextColor3 = color,
+			Parent = row,
+		})
+		text({
+			Position = UDim2.new(0, 50, 0, 3),
+			Size = UDim2.new(0.5, -50, 1, -6),
+			Text = entry.name .. (if isMe then " (you)" else ""),
+			TextColor3 = color,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = row,
+		})
+		text({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -70, 0, 3),
+			Size = UDim2.new(0.5, -80, 1, -6),
+			Text = Config.formatScore(entry.damage) .. " pts",
+			TextColor3 = color,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = row,
+		})
+		text({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -6, 0, 3),
+			Size = UDim2.new(0, 60, 1, -6),
+			Text = if (entry.bucks or 0) > 0 then ("+%d 💵"):format(entry.bucks) else "",
+			TextColor3 = YELLOW,
+			Parent = row,
 		})
 	end
 	self.results.Visible = true

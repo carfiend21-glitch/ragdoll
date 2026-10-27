@@ -11,6 +11,8 @@ local EVENTS = {
 	"SetRunning",
 	"Restart",
 	"Spectate",
+	"BuyShopItem",
+	"EquipShopItem",
 	-- server -> player
 	"DataSync",
 	"AchievementUnlocked",
@@ -20,6 +22,7 @@ local EVENTS = {
 	"Hint",
 	"ReplayReset",
 	"ReplayChunk",
+	"ReplayPick",
 }
 local FUNCTIONS = { "GetData" }
 

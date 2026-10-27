@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local NoobBucks = require(Shared.NoobBucks)
 local Remotes = require(Shared.Remotes)
 local Weapons = require(Shared.Weapons)
 
@@ -14,6 +15,7 @@ local Arena = require(script.Parent.Arena)
 local Leaderboards = require(script.Parent.Leaderboards)
 local PlayerData = require(script.Parent.PlayerData)
 local RoundManager = require(script.Parent.RoundManager)
+local ShopService = require(script.Parent.ShopService)
 local WorldBuilder = require(script.Parent.WorldBuilder)
 
 local lobby = WorldBuilder.buildLobby()
@@ -115,11 +117,32 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gameP
 	Remotes.Notify:FireClient(player, "🎉 THANK YOU!", weapon.name .. " is now unlocked forever!")
 end)
 
+-- Spending Noob Bucks in the shop
+ShopService.start()
+
+-- Robux purchases of Noob Buck packs (Developer Products). Roblox keeps asking until
+-- we say "granted", so we only say it once the coins are safely saved.
+MarketplaceService.ProcessReceipt = function(receipt)
+	local pack = NoobBucks.byProductId[receipt.ProductId]
+	local player = Players:GetPlayerByUserId(receipt.PlayerId)
+	if not pack or not player or not PlayerData.waitFor(player) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet -- they left: Roblox asks again next time
+	end
+	if not PlayerData.grantBuckPurchase(player, receipt.PurchaseId, pack.bucks) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	Remotes.Notify:FireClient(player, ("💵 +%d NOOB BUCKS"):format(pack.bucks), "Thank you for your purchase!")
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
 local function onPlayerAdded(player)
 	player:SetAttribute("Room", 0)
 	player:SetAttribute("Damage", 0)
 	player:SetAttribute("Spectating", 0)
 	PlayerData.load(player)
+	if player.Parent then
+		ShopService.watch(player) -- their title and trail
+	end
 end
 Players.PlayerAdded:Connect(onPlayerAdded)
 for _, player in Players:GetPlayers() do

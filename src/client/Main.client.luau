@@ -10,6 +10,7 @@ local Sounds = require(Shared.Sounds)
 
 local Blood = require(script.Parent.Blood)
 local CameraController = require(script.Parent.CameraController)
+local BuckShop = require(script.Parent.BuckShop)
 local Hud = require(script.Parent.Hud)
 local Placement = require(script.Parent.Placement)
 local Replay = require(script.Parent.Replay)
@@ -24,9 +25,11 @@ hud.onWeaponClicked = function(weaponId)
 end
 CameraController.start()
 Spectate.start()
+local buckShop = BuckShop.start()
 
 Remotes.DataSync.OnClientEvent:Connect(function(data)
 	hud:setData(data)
+	buckShop.setData(data)
 end)
 Remotes.AchievementUnlocked.OnClientEvent:Connect(function(id, weaponIds, reward)
 	hud:showAchievement(id, weaponIds, reward)
@@ -58,6 +61,7 @@ end)
 -- Replays: the server sends recordings during the round; we play them all after it
 Remotes.ReplayReset.OnClientEvent:Connect(Replay.reset)
 Remotes.ReplayChunk.OnClientEvent:Connect(Replay.addPiece)
+Remotes.ReplayPick.OnClientEvent:Connect(Replay.pick)
 
 -- Chill music in the lobby. While you're playing or watching a round it fades over
 -- to the round music ("Heist Time", from 55 seconds in, every round), and for the
@@ -107,6 +111,8 @@ local function updateMusic()
 	setLayer(lobbyLayer, not inRound)
 	setLayer(roundLayer, inRound)
 	setLayer(ticksLayer, inRound and wasInRound and timeLeft > 0 and timeLeft <= FINAL_STRETCH)
+	-- The lobby is in the middle of the ring of rooms: turn the rooms down while you're there
+	Sounds.setRoomVolume(if inRound then 1 else 0.25)
 end
 Remotes.GameState:GetAttributeChangedSignal("TimeLeft"):Connect(updateMusic)
 player:GetAttributeChangedSignal("Room"):Connect(updateMusic)
@@ -150,5 +156,7 @@ player:GetAttributeChangedSignal("Cash"):Connect(function()
 	lastCash = cash
 end)
 
-hud:setData(Remotes.GetData:InvokeServer())
+local startData = Remotes.GetData:InvokeServer()
+hud:setData(startData)
+buckShop.setData(startData)
 onPhaseChanged()

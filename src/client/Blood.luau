@@ -5,20 +5,18 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local ShopItems = require(Shared.ShopItems)
 
 local Blood = {}
 
 local MAX_SPLATS = 300
 local DROP_LIFETIME = 3
-local COLORS = {
-	Color3.fromRGB(150, 0, 0),
-	Color3.fromRGB(120, 0, 5),
-	Color3.fromRGB(175, 10, 10),
-}
+local CLASSIC_BLOOD = ShopItems.byId.ClassicBlood
 
 local folder = nil
-local drops = {} -- flying drops: { part, velocity, origin, age }
+local drops = {} -- flying drops: { part, velocity, room (CFrame), age, style }
 local splats = {} -- oldest first, so the oldest get cleaned up first
 
 local function getFolder()
@@ -30,7 +28,8 @@ local function getFolder()
 	return folder
 end
 
-local function newBlob(shape, size, cframe)
+-- `style` = a blood style from ShopItems (the room owner's, bought with Noob Bucks)
+local function newBlob(shape, size, cframe, style)
 	local part = Instance.new("Part")
 	part.Anchored = true
 	part.CanCollide = false
@@ -40,20 +39,23 @@ local function newBlob(shape, size, cframe)
 	part.Shape = shape
 	part.Size = size
 	part.CFrame = cframe
-	part.Color = COLORS[math.random(#COLORS)]
+	part.Color = ShopItems.bloodColor(style)
 	part.Material = Enum.Material.SmoothPlastic
 	part.Parent = getFolder()
 	return part
 end
 
--- A flat round splat on a surface. `normal` points out of the surface, into the room.
-local function splat(position, normal, diameter)
+-- A flat round splat on a surface of a room. `position` and `normal` are in the room's
+-- own directions (X across, Y up, Z toward the camera); `normal` points out of the
+-- surface, into the room.
+local function splat(room, position, normal, diameter, style)
 	local side = normal:Cross(if math.abs(normal.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis).Unit
 	-- The back wall has a stripe sticking out a little, so sit further off it
 	local lift = if normal.Z > 0.9 then 0.25 else 0.04
-	local cframe = CFrame.fromMatrix(position + normal * lift, normal, side)
+	local cframe = room
+		* CFrame.fromMatrix(position + normal * lift, normal, side)
 		* CFrame.Angles(math.random() * math.pi * 2, 0, 0)
-	table.insert(splats, newBlob(Enum.PartType.Cylinder, Vector3.new(0.05, diameter, diameter), cframe))
+	table.insert(splats, newBlob(Enum.PartType.Cylinder, Vector3.new(0.05, diameter, diameter), cframe, style))
 	if #splats > MAX_SPLATS then
 		table.remove(splats, 1):Destroy()
 	end
@@ -64,21 +66,30 @@ function Blood.spray(room, position, amount)
 	if not Config.BLOOD_ENABLED then
 		return
 	end
-	local origin = Config.getRoomOrigin(room)
+	-- Worked out in the room's own directions, whichever way round the ring it faces
+	local roomCFrame = Config.getRoomCFrame(room)
+	local roomModel = Workspace:FindFirstChild("Rooms") and Workspace.Rooms:FindFirstChild("Room" .. room)
+	local style = roomModel and ShopItems.byId[roomModel:GetAttribute("BloodStyle")] or CLASSIC_BLOOD
 	for _ = 1, math.clamp(math.floor(amount / 4), 3, 14) do
 		local velocity = Vector3.new((math.random() - 0.5) * 24, math.random() * 15 + 3, (math.random() - 0.5) * 5)
 		local size = 0.15 + math.random() * 0.25
-		local part = newBlob(Enum.PartType.Ball, Vector3.one * size, CFrame.new(position))
-		table.insert(drops, { part = part, velocity = velocity, origin = origin, age = 0 })
+		local part = newBlob(Enum.PartType.Ball, Vector3.one * size, CFrame.new(position), style)
+		table.insert(drops, {
+			part = part,
+			velocity = roomCFrame:VectorToWorldSpace(velocity),
+			room = roomCFrame,
+			age = 0,
+			style = style,
+		})
 	end
 
 	-- Splash on the back wall right behind the hit: the part you see most
 	local size = Config.ROOM_SIZE
-	local backZ = origin.Z - size.Z / 2
+	local hit = roomCFrame:PointToObjectSpace(position)
 	for _ = 1, math.clamp(math.floor(amount / 10), 1, 5) do
-		local x = math.clamp(position.X + (math.random() - 0.5) * 3, origin.X - size.X / 2, origin.X + size.X / 2)
-		local y = math.clamp(position.Y + (math.random() - 0.5) * 3, origin.Y, origin.Y + size.Y)
-		splat(Vector3.new(x, y, backZ), Vector3.zAxis, 0.4 + math.random() * math.min(amount / 15, 2))
+		local x = math.clamp(hit.X + (math.random() - 0.5) * 3, -size.X / 2, size.X / 2)
+		local y = math.clamp(hit.Y + (math.random() - 0.5) * 3, 0, size.Y)
+		splat(roomCFrame, Vector3.new(x, y, -size.Z / 2), Vector3.zAxis, 0.4 + math.random() * math.min(amount / 15, 2), style)
 	end
 end
 
@@ -101,24 +112,24 @@ RunService.RenderStepped:Connect(function(dt)
 		drop.age += dt
 		drop.velocity += gravity * dt
 		local position = drop.part.Position + drop.velocity * dt
-		local o = drop.origin
-		local relative = position - o
+		-- Where it is in the room's own directions (X across, Y up, Z toward the camera)
+		local p = drop.room:PointToObjectSpace(position)
 
 		local normal = nil
-		if relative.Y <= 0 then
-			normal, position = Vector3.yAxis, Vector3.new(position.X, o.Y, position.Z)
-		elseif relative.Y >= size.Y then
-			normal, position = -Vector3.yAxis, Vector3.new(position.X, o.Y + size.Y, position.Z)
-		elseif relative.X <= -size.X / 2 then
-			normal, position = Vector3.xAxis, Vector3.new(o.X - size.X / 2, position.Y, position.Z)
-		elseif relative.X >= size.X / 2 then
-			normal, position = -Vector3.xAxis, Vector3.new(o.X + size.X / 2, position.Y, position.Z)
-		elseif relative.Z <= -size.Z / 2 then
-			normal, position = Vector3.zAxis, Vector3.new(position.X, position.Y, o.Z - size.Z / 2)
+		if p.Y <= 0 then
+			normal, p = Vector3.yAxis, Vector3.new(p.X, 0, p.Z)
+		elseif p.Y >= size.Y then
+			normal, p = -Vector3.yAxis, Vector3.new(p.X, size.Y, p.Z)
+		elseif p.X <= -size.X / 2 then
+			normal, p = Vector3.xAxis, Vector3.new(-size.X / 2, p.Y, p.Z)
+		elseif p.X >= size.X / 2 then
+			normal, p = -Vector3.xAxis, Vector3.new(size.X / 2, p.Y, p.Z)
+		elseif p.Z <= -size.Z / 2 then
+			normal, p = Vector3.zAxis, Vector3.new(p.X, p.Y, -size.Z / 2)
 		end
 
 		if normal then
-			splat(position, normal, drop.part.Size.X * 2.5)
+			splat(drop.room, p, normal, drop.part.Size.X * 2.5, drop.style)
 		end
 		if normal or drop.age > DROP_LIFETIME then
 			drop.part:Destroy()

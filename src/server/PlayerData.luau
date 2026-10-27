@@ -1,5 +1,6 @@
--- Loads and saves each player's achievements and wins using Roblox DataStores,
--- and checks which weapons they've bought with Robux (Roblox remembers those for us).
+-- Loads and saves each player's achievements, wins, Noob Bucks and Noob Buck shop
+-- items using Roblox DataStores, and checks which weapons they've bought with Robux
+-- (Roblox remembers those for us).
 -- Cash is kept here too, but only for the current round: it's never saved.
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -8,6 +9,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local ShopItems = require(Shared.ShopItems)
 local Weapons = require(Shared.Weapons)
 
 local PlayerData = {}
@@ -22,11 +24,17 @@ end
 
 -- [player] = { achievements = { [id] = true }, owned = { [weaponId] = true }, wins = number,
 --              winsValue = IntValue, bestRun = number, cash = number, canSave = bool, dirty = bool,
---              saveQueued = bool }
+--              saveQueued = bool, noobBucks = number, unsavedBucks = number,
+--              purchases = { [purchaseId] = true }, items = { [shop item id] = true },
+--              equipped = { [shop category] = item id }, rentals = { [weaponId] = true } }
+-- Noob Bucks are saved as "+X since the last save" (`unsavedBucks`) added onto whatever
+-- is saved, so two servers saving at once can never wipe out each other's coins.
 local profiles = {}
 local savesInProgress = 0
 -- Roblox only lets us save the same player about once every 6 seconds
 local SAVE_SOON_DELAY = 7
+-- How many Robux purchase IDs to remember, so a purchase is never given twice
+local PURCHASES_REMEMBERED = 100
 
 local function keyFor(player)
 	return "Player_" .. player.UserId
@@ -76,7 +84,44 @@ function PlayerData.load(player)
 	local wins = 0
 	local bestRun = 0 -- most damage they've ever done in one run
 	local cash = Config.STARTING_CASH -- cash isn't saved: everyone starts fresh
+	local noobBucks = 0
+	local purchases = {} -- set of purchase IDs
+	local purchaseOrder = {} -- the same IDs, oldest first
+	local items = {} -- Noob Buck shop items they own
+	local equipped = {} -- [shop category] = item id
+	local rentals = {} -- [weaponId] = true while rented
 	if type(saved) == "table" then
+		if type(saved.noobBucks) == "number" then
+			noobBucks = saved.noobBucks
+		elseif type(saved.noobCoins) == "number" then
+			noobBucks = saved.noobCoins -- saved before Noob Coins were renamed Noob Bucks
+		end
+		if type(saved.items) == "table" then
+			for _, id in saved.items do
+				if ShopItems.byId[id] then
+					items[id] = true
+				end
+			end
+		end
+		if type(saved.equipped) == "table" then
+			for category, id in saved.equipped do
+				local item = ShopItems.byId[id]
+				if item and item.category == category then
+					equipped[category] = id
+				end
+			end
+		end
+		if type(saved.rentals) == "table" then
+			for weaponId, value in saved.rentals do
+				rentals[weaponId] = value == true or nil
+			end
+		end
+		if type(saved.purchases) == "table" then
+			for _, purchaseId in saved.purchases do
+				purchases[purchaseId] = true
+				table.insert(purchaseOrder, purchaseId)
+			end
+		end
 		if type(saved.bestRun) == "number" then
 			bestRun = saved.bestRun
 		end
@@ -102,6 +147,7 @@ function PlayerData.load(player)
 	winsValue.Parent = leaderstats
 	leaderstats.Parent = player
 	player:SetAttribute("Cash", cash) -- shown in the bottom bar
+	player:SetAttribute("NoobBucks", noobBucks) -- shown in the top-right corner
 
 	-- If loading failed we don't save either, so we never overwrite real progress with an empty save
 	profiles[player] = {
@@ -113,7 +159,29 @@ function PlayerData.load(player)
 		cash = cash,
 		canSave = loaded,
 		dirty = false,
+		noobBucks = noobBucks,
+		unsavedBucks = 0,
+		purchases = purchases,
+		purchaseOrder = purchaseOrder,
+		items = items,
+		equipped = equipped,
+		rentals = rentals,
 	}
+end
+
+-- Saves soon, rather than waiting for the once-a-minute save, so something new
+-- (an achievement, coins) is never lost if the game closes suddenly
+local function saveSoon(player, profile)
+	if profile.saveQueued then
+		return
+	end
+	profile.saveQueued = true
+	task.delay(SAVE_SOON_DELAY, function()
+		profile.saveQueued = false
+		if profiles[player] == profile then
+			PlayerData.save(player)
+		end
+	end)
 end
 
 function PlayerData.waitFor(player)
@@ -123,19 +191,117 @@ function PlayerData.waitFor(player)
 	return profiles[player]
 end
 
--- What the player's screen needs to know: { achievements = {ids}, ownedWeapons = {ids} }
+-- Weapons they can use without the achievement: bought with Robux, unlocked with
+-- Noob Bucks, or (unless `skipRentals`) rented for a round
+local function extraWeapons(profile, skipRentals)
+	local weapons = table.clone(profile.owned)
+	for id in profile.items do
+		local item = ShopItems.byId[id]
+		if item.kind == "unlock" then
+			weapons[item.weapon] = true
+		end
+	end
+	if not skipRentals then
+		for weaponId in profile.rentals do
+			weapons[weaponId] = true
+		end
+	end
+	return weapons
+end
+
+-- What the player's screen needs to know: { achievements = {ids}, ownedWeapons = {ids},
+-- shopItems = {ids}, equipped = { [category] = id }, rentals = {weapon ids} }
 function PlayerData.getSyncData(player)
-	local data = { achievements = {}, ownedWeapons = {} }
+	local data = { achievements = {}, ownedWeapons = {}, shopItems = {}, equipped = {}, rentals = {} }
 	local profile = profiles[player]
 	if profile then
 		for id in profile.achievements do
 			table.insert(data.achievements, id)
 		end
-		for id in profile.owned do
+		for id in extraWeapons(profile) do
 			table.insert(data.ownedWeapons, id)
+		end
+		for id in profile.items do
+			table.insert(data.shopItems, id)
+		end
+		data.equipped = table.clone(profile.equipped)
+		for weaponId in profile.rentals do
+			table.insert(data.rentals, weaponId)
 		end
 	end
 	return data
+end
+
+function PlayerData.ownsShopItem(player, id)
+	local profile = profiles[player]
+	local item = ShopItems.byId[id]
+	return profile ~= nil and item ~= nil and (item.price == 0 or profile.items[id] == true)
+end
+
+-- Has a weapon been unlocked any way at all (achievement, Robux, Noob Bucks, rental)?
+function PlayerData.isWeaponUnlocked(player, weaponId)
+	local weapon = Weapons.byId[weaponId]
+	local profile = profiles[player]
+	return weapon ~= nil and profile ~= nil and Weapons.isUnlocked(weapon, profile.achievements, extraWeapons(profile))
+end
+
+-- Has the weapon been bought for good (with Robux or Noob Bucks, or by its achievement)?
+-- Rentals don't count.
+function PlayerData.ownsWeapon(player, weaponId)
+	local weapon = Weapons.byId[weaponId]
+	local profile = profiles[player]
+	return weapon ~= nil and profile ~= nil and Weapons.isUnlocked(weapon, profile.achievements, extraWeapons(profile, true))
+end
+
+function PlayerData.isRenting(player, weaponId)
+	local profile = profiles[player]
+	return profile ~= nil and profile.rentals[weaponId] == true
+end
+
+-- Spends Noob Bucks on a shop item. Returns true if they had enough.
+function PlayerData.buyShopItem(player, id)
+	local profile = profiles[player]
+	local item = ShopItems.byId[id]
+	if not profile or not item or profile.noobBucks < item.price then
+		return false
+	end
+	PlayerData.addNoobBucks(player, -item.price)
+	if item.kind == "rent" then
+		profile.rentals[item.weapon] = true
+	else
+		profile.items[id] = true
+	end
+	profile.dirty = true
+	return true
+end
+
+function PlayerData.equipShopItem(player, id)
+	local profile = profiles[player]
+	local item = ShopItems.byId[id]
+	if not profile or not item then
+		return
+	end
+	profile.equipped[item.category] = id
+	profile.dirty = true
+	saveSoon(player, profile)
+end
+
+-- { [category] = item id } of everything they're wearing
+function PlayerData.getEquipped(player)
+	local profile = profiles[player]
+	return if profile then profile.equipped else {}
+end
+
+-- A rented weapon got used for a round: it's gone now
+function PlayerData.endRentals(player)
+	local profile = profiles[player]
+	if profile and next(profile.rentals) then
+		profile.rentals = {}
+		profile.dirty = true
+		saveSoon(player, profile)
+		return true
+	end
+	return false
 end
 
 -- Returns true if this is a brand-new unlock
@@ -146,18 +312,43 @@ function PlayerData.unlockAchievement(player, id)
 	end
 	profile.achievements[id] = true
 	profile.dirty = true
-	-- Save it soon, rather than waiting for the once-a-minute save,
-	-- so a new achievement is never lost if the game closes suddenly
-	if not profile.saveQueued then
-		profile.saveQueued = true
-		task.delay(SAVE_SOON_DELAY, function()
-			profile.saveQueued = false
-			if profiles[player] == profile then
-				PlayerData.save(player)
-			end
-		end)
-	end
+	saveSoon(player, profile)
 	return true
+end
+
+-- Gives (or, with a negative amount, takes) Noob Bucks. Returns their new total.
+function PlayerData.addNoobBucks(player, amount)
+	local profile = profiles[player]
+	if not profile then
+		return 0
+	end
+	profile.noobBucks += amount
+	profile.unsavedBucks += amount
+	profile.dirty = true
+	player:SetAttribute("NoobBucks", profile.noobBucks)
+	saveSoon(player, profile)
+	return profile.noobBucks
+end
+
+-- A Robux pack of Noob Bucks was bought. Gives the coins (only once per purchase,
+-- even if Roblox asks again) and saves straight away. Returns true once it's safely
+-- saved; if it returns false, Roblox will ask again later.
+function PlayerData.grantBuckPurchase(player, purchaseId, coins)
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	if not profile.purchases[purchaseId] then
+		profile.purchases[purchaseId] = true
+		table.insert(profile.purchaseOrder, purchaseId)
+		PlayerData.addNoobBucks(player, coins)
+	end
+	if not store or not profile.canSave then
+		-- Can't save (testing in Studio without API access): give them anyway so
+		-- test purchases work, but in a live game wait until it can be saved
+		return RunService:IsStudio()
+	end
+	return PlayerData.save(player)
 end
 
 -- Called right after a Robux purchase (Roblox remembers it, so it isn't saved here)
@@ -239,19 +430,26 @@ function PlayerData.achievementCount(player)
 	return count
 end
 
-function PlayerData.isWeaponUnlocked(player, weaponId)
-	local weapon = Weapons.byId[weaponId]
-	local profile = profiles[player]
-	return weapon ~= nil and profile ~= nil and Weapons.isUnlocked(weapon, profile.achievements, profile.owned)
-end
-
+-- Returns true if everything is saved (or there was nothing new to save)
 function PlayerData.save(player)
 	local profile = profiles[player]
-	if not store or not profile or not profile.canSave or not profile.dirty then
-		return
+	if not store or not profile or not profile.canSave then
+		return false
+	end
+	-- One save at a time per player, so a purchase never counts as saved while
+	-- an older save (that doesn't include it) is still going
+	while profile.saving do
+		task.wait(0.1)
+	end
+	if not profile.dirty then
+		return true
 	end
 	profile.dirty = false
+	profile.saving = true
 	savesInProgress += 1
+	local bucksToAdd = profile.unsavedBucks
+	local purchaseOrder = table.clone(profile.purchaseOrder or {})
+	local savedBucks = nil
 	-- Mixed in with what's already saved rather than replacing it, so if this player
 	-- hopped to another server and earned more there, nothing gets wiped out
 	local success, result = pcall(store.UpdateAsync, store, keyFor(player), function(saved)
@@ -263,13 +461,51 @@ function PlayerData.save(player)
 		data.achievements = achievements
 		data.wins = math.max(if type(data.wins) == "number" then data.wins else 0, profile.wins)
 		data.bestRun = math.max(if type(data.bestRun) == "number" then data.bestRun else 0, profile.bestRun)
+		-- (Saves from before the rename used "noobCoins": move those over)
+		local before = if type(data.noobBucks) == "number"
+			then data.noobBucks
+			elseif type(data.noobCoins) == "number" then data.noobCoins
+			else 0
+		data.noobCoins = nil
+		data.noobBucks = before + bucksToAdd
+		savedBucks = data.noobBucks
+		-- Shop items they own (never lost), what they're wearing, and rentals
+		local items = if type(data.items) == "table" then data.items else {}
+		for id in profile.items do
+			if not table.find(items, id) then
+				table.insert(items, id)
+			end
+		end
+		data.items = items
+		data.equipped = profile.equipped
+		data.rentals = profile.rentals
+		-- Remember recent Robux purchases (oldest dropped first)
+		local purchases = if type(data.purchases) == "table" then data.purchases else {}
+		for _, purchaseId in purchaseOrder do
+			if not table.find(purchases, purchaseId) then
+				table.insert(purchases, purchaseId)
+			end
+		end
+		while #purchases > PURCHASES_REMEMBERED do
+			table.remove(purchases, 1)
+		end
+		data.purchases = purchases
 		return data, { player.UserId }
 	end)
 	savesInProgress -= 1
+	profile.saving = false
 	if not success then
 		profile.dirty = true -- try again next time
 		warn(("[PlayerData] Couldn't save %s: %s"):format(player.Name, tostring(result)))
+		return false
 	end
+	profile.unsavedBucks -= bucksToAdd
+	-- Show the saved total (it includes any coins earned on another server)
+	if savedBucks and profiles[player] == profile then
+		profile.noobBucks = savedBucks + profile.unsavedBucks
+		player:SetAttribute("NoobBucks", profile.noobBucks)
+	end
+	return true
 end
 
 function PlayerData.release(player)
