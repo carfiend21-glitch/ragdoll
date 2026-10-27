@@ -1,5 +1,5 @@
 -- After each round, plays back the top 3 rooms one at a time, building up to the
--- winner: 3rd place at 3x, then 2nd place at 4x, then 1st place last at 5x, each with a
+-- winner: 3rd place, then 2nd place, then 1st place last, all at 5x, each with a
 -- title card first. Shows everything that happened: the noob, the weapons, arrows and
 -- rockets flying, arrows sticking in, explosions, blood, torn-off limbs, damage numbers,
 -- and when players pressed PLAY / STOP / RESTART. Each replay has a damage counter.
@@ -682,7 +682,7 @@ function Replay.play()
 	shade.Color = ColorSequence.new(Color3.fromRGB(35, 36, 48), Color3.fromRGB(12, 12, 16))
 	shade.Parent = background
 
-	-- "3RD PLACE  3x >>>" at the top left, the replay's clock at the top right
+	-- "3RD PLACE  5x >>>>>" at the top left, the replay's clock at the top right
 	local placeLabel = label({
 		Position = UDim2.new(0, 16, 0, 62),
 		Size = UDim2.new(0.6, 0, 0, 44),
