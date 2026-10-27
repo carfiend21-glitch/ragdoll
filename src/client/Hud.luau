@@ -239,118 +239,20 @@ function Hud:_buildLobby()
 		Parent = self.modal,
 	})
 
-	self:_buildShop()
+	self:_buildLobbyCash()
 end
 
--- Shop window: weapons you can buy with Robux
-function Hud:_buildShop()
-	self.shopButton = button({
-		Size = UDim2.fromOffset(210, 40),
-		BackgroundColor3 = Color3.fromRGB(0, 170, 90),
-		Text = "🛒 Shop",
-		Parent = self.lobby,
-	}, { rounded(8), padding(6), outline(2) })
-	-- Your cash, shown in the lobby too
+-- Your cash, shown in the lobby too: the amount you'll start the next round with.
+-- (Robux weapons are bought by clicking their locked button on the weapon bar.)
+function Hud:_buildLobbyCash()
 	self.lobbyCash = text({
 		Size = UDim2.fromOffset(210, 34),
 		Font = TITLE_FONT,
 		TextColor3 = Color3.fromRGB(120, 230, 120),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = "$0",
+		Text = Config.formatCash(player:GetAttribute("Cash") or Config.STARTING_CASH),
 		Parent = self.lobby,
 	})
-	self.shop = create("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(440, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = DARK,
-		Visible = false,
-		ZIndex = 10,
-		Parent = self.lobby,
-	}, {
-		rounded(12),
-		outline(3),
-		padding(12),
-		create("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
-	})
-	local header = create("Frame", { Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Parent = self.shop })
-	text({
-		Size = UDim2.new(1, -50, 1, 0),
-		Font = TITLE_FONT,
-		Text = "🛒 WEAPON SHOP",
-		TextColor3 = ORANGE,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = header,
-	})
-	local close = button({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(1, 0),
-		Size = UDim2.fromOffset(36, 36),
-		BackgroundColor3 = RED,
-		Text = "X",
-		Parent = header,
-	}, { rounded(8), padding(6) })
-	close.Activated:Connect(function()
-		self.shop.Visible = false
-	end)
-	self.shopButton.Activated:Connect(function()
-		Sounds.playUI("Click")
-		self.shop.Visible = not self.shop.Visible
-		self.modal.Visible = false
-	end)
-
-	self.shopRows = {}
-	for order, weapon in Weapons.list do
-		if weapon.gamePassId then
-			local row = create("Frame", {
-				LayoutOrder = order,
-				Size = UDim2.new(1, 0, 0, 64),
-				BackgroundColor3 = Color3.fromRGB(55, 58, 70),
-				Parent = self.shop,
-			}, { rounded(8) })
-			WeaponIcon.create(weapon.id, row, UDim2.fromOffset(52, 52), UDim2.fromOffset(6, 6))
-			text({
-				Position = UDim2.fromOffset(64, 6),
-				Size = UDim2.new(1, -184, 0, 26),
-				Font = TITLE_FONT,
-				Text = weapon.name:upper(),
-				TextXAlignment = Enum.TextXAlignment.Left,
-				Parent = row,
-			})
-			text({
-				Position = UDim2.fromOffset(64, 34),
-				Size = UDim2.new(1, -184, 0, 24),
-				Text = weapon.description,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				TextStrokeTransparency = 1,
-				Parent = row,
-			}, { create("UITextSizeConstraint", { MaxTextSize = 15 }) })
-			local buy = button({
-				AnchorPoint = Vector2.new(1, 0.5),
-				Position = UDim2.new(1, -8, 0.5, 0),
-				Size = UDim2.fromOffset(104, 40),
-				BackgroundColor3 = Color3.fromRGB(0, 170, 90),
-				Text = "BUY",
-				Parent = row,
-			}, { rounded(8), padding(6) })
-			buy.Activated:Connect(function()
-				if not Weapons.isUnlocked(weapon, self.achievements, self.owned) and not self:_promptPurchase(weapon) then
-					buy.Text = "SOON"
-				end
-			end)
-			self.shopRows[weapon.id] = buy
-		end
-	end
-end
-
-function Hud:_refreshShop()
-	for weaponId, buy in self.shopRows do
-		local weapon = Weapons.byId[weaponId]
-		local unlocked = Weapons.isUnlocked(weapon, self.achievements, self.owned)
-		buy.Text = if unlocked then "OWNED ✔" else "BUY"
-		buy.BackgroundColor3 = if unlocked then Color3.fromRGB(90, 90, 100) else Color3.fromRGB(0, 170, 90)
-	end
 end
 
 function Hud:_buildTopBar()
@@ -905,8 +807,7 @@ function Hud:_applyLayout()
 
 	self.lobbyStatus.Position = UDim2.new(0.5, 0, 0, layout.inset + 6)
 	self.achievementsButton.Position = UDim2.fromOffset(12, layout.inset + 8)
-	self.shopButton.Position = UDim2.fromOffset(12, layout.inset + 56)
-	self.lobbyCash.Position = UDim2.fromOffset(16, layout.inset + 104)
+	self.lobbyCash.Position = UDim2.fromOffset(16, layout.inset + 56)
 end
 
 -- Where achievement pop-ups slide down to
@@ -1056,7 +957,6 @@ function Hud:setData(data)
 		-- Robux-only weapons show a price tag instead of a padlock
 		lock.Text = if weapon.gamePassId and not weapon.unlockedBy then "R$" else "🔒"
 	end
-	self:_refreshShop()
 	self:_refreshCash()
 
 	-- Current tasks = the first few achievements you don't have yet

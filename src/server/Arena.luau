@@ -113,6 +113,7 @@ function Arena:resetScore()
 	self.lastComboTime = 0
 	self.recentTraps = {} -- [itemId] = time it last hit the noob
 	self.surfaceCooldowns = {}
+	self.lastSurface = {} -- [body part name] = { kind = "Floor" | "Wall" | "Ceiling", time } (for crash sounds)
 	self.ignoreImpactUntil = 0
 	self.lastSpeed = 0
 	self.airTime = 0 -- seconds in the air not yet paid out as cash
@@ -289,6 +290,8 @@ function Arena:placeItem(player, weaponId, position)
 	local placement = Config.placementFor(self.index, weapon, position)
 	self:_addItem(weapon, placement)
 	Sounds.playAt(PLACE_SOUNDS[weapon.id] or "Place", placement.Position)
+	-- A rented weapon only gets used up once it's actually been placed in a round
+	PlayerData.useRental(player, weapon.id)
 end
 
 function Arena:moveItem(player, itemId, position)
@@ -440,9 +443,14 @@ function Arena:hit(source, item, hits)
 	self.achievements.onHit(self.owner, self, source)
 end
 
-local CRASH_SOUNDS = { "Thud", "BodyImpact", "Punch" }
+-- What a crash sounds like, by what the noob hit (the Surface attribute on room parts)
+local CRASH_SOUNDS = { Floor = "FloorHit", Wall = "WallHit", Ceiling = "CeilingHit" }
+local OTHER_CRASH_SOUNDS = { "Thud", "BodyImpact" } -- hitting anything else
+local SURFACE_MEMORY = 0.25 -- seconds a touch still counts as "what it just hit"
+local BULLET_SOUND_GAP = 0.12 -- the machine gun fires fast, so not every bullet thwacks
 
--- Crashes thud (louder for harder crashes) and torn-off limbs splat
+-- Crashes sound like the surface they hit, louder and deeper the harder they were,
+-- with a fleshy smack on top of big ones. Bullets thwack, and torn-off limbs splat.
 function Arena:_playHitSounds(source, reports)
 	local biggest = reports[1]
 	for _, report in reports do
@@ -455,13 +463,32 @@ function Arena:_playHitSounds(source, reports)
 		end
 	end
 	if source == "Impact" then
-		local loudness = math.clamp(biggest.damage / 15, 0.4, 1.3)
-		Sounds.playAt(CRASH_SOUNDS[math.random(#CRASH_SOUNDS)], biggest.position, loudness)
+		local hard = math.clamp(biggest.damage / 20, 0, 1) -- 0 = a tap, 1 = a huge crash
+		local touched = self.lastSurface[biggest.part]
+		local surface = touched and os.clock() - touched.time <= SURFACE_MEMORY and touched.kind
+		local name = CRASH_SOUNDS[surface] or OTHER_CRASH_SOUNDS[math.random(#OTHER_CRASH_SOUNDS)]
+		local sound = Sounds.playAt(name, biggest.position, 0.45 + hard * 0.9)
+		sound.PlaybackSpeed *= 1.12 - hard * 0.3 -- harder = deeper
+		if hard > 0.5 then
+			Sounds.playAt("BodyImpact", biggest.position, hard * 0.7)
+		end
+	elseif source == "MachineGun" then
+		local now = os.clock()
+		if now - (self.lastBulletSound or 0) > BULLET_SOUND_GAP then
+			self.lastBulletSound = now
+			Sounds.playAt("Punch", biggest.position, 0.5)
+		end
 	end
 end
 
 function Arena:_onDestroyed(source, partKey)
 	self.achievements.onDestroyed(self.owner, self, source, partKey)
+	-- A cash bonus for finishing it off
+	PlayerData.addCash(self.owner, Config.KILL_CASH)
+	Remotes.Hint:FireClient(self.owner, ("Noob destroyed! +%s"):format(Config.formatCash(Config.KILL_CASH)))
+	-- Nothing keeps attacking the pieces: shots already flying vanish, and weapons
+	-- wait for the fresh noob (see Items.step)
+	self:_clearProjectiles()
 	-- Swap in a fresh noob after a moment (unless it's already been replaced)
 	local number = self.noobNumber
 	task.delay(Config.RESPAWN_DELAY, function()
@@ -514,6 +541,8 @@ function Arena:_onNoobTouched(bodyPart, other)
 	local surface = other:GetAttribute("Surface")
 	if surface then
 		local now = os.clock()
+		-- Remembered so a crash right after sounds like what it hit
+		self.lastSurface[bodyPart.Name] = { kind = surface, time = now }
 		if now - (self.surfaceCooldowns[surface] or 0) > SURFACE_COOLDOWN then
 			self.surfaceCooldowns[surface] = now
 			if self.active and self.owner then

@@ -155,7 +155,7 @@ local function playRound(arenas)
 	end
 	local results = {}
 	for _, entry in roster do
-		-- A rented weapon lasts for one round
+		-- A rented weapon lasts for one round of actually using it (see PlayerData.endRentals)
 		if entry.player.Parent and PlayerData.endRentals(entry.player) then
 			Remotes.DataSync:FireClient(entry.player, PlayerData.getSyncData(entry.player))
 		end
@@ -194,6 +194,8 @@ local function playRound(arenas)
 	for _, entry in roster do
 		if entry.player.Parent then
 			entry.player:SetAttribute("Room", 0)
+			-- Back to the starting cash, so the lobby shows what you'll start the next round with
+			PlayerData.resetCash(entry.player)
 		end
 		entry.arena:clear()
 	end

@@ -6,9 +6,9 @@ Config.ROUND_TIME = 90
 Config.INTERMISSION_TIME = 30 -- break in the lobby between rounds
 Config.RESULTS_TIME = 8
 
--- Replays speed up as they go: the first third plays at 2x, the middle third at 3x
--- and the last third at 4x
-Config.REPLAY_SPEEDS = { 2, 3, 4 }
+-- Replays speed up as they go: the first third plays at 3x, the middle third at 4x
+-- and the last third at 5x
+Config.REPLAY_SPEEDS = { 3, 4, 5 }
 -- How many snapshots per second get recorded
 Config.REPLAY_SAMPLE_RATE = 15
 
@@ -140,12 +140,13 @@ Config.DATASTORE_NAME = "RagdollNoob_PlayerData_v1"
 -- Cash is NOT saved: everyone starts every round with STARTING_CASH, and earns more
 -- during the round. Roughly $50 per run. Weapons get used up, so that cash goes on
 -- replacing them, and the Flamethrower ($200) takes a few runs of saving up.
--- All income was raised 50% (user, 2026-10-26: progress felt too slow in a 90s round).
--- Prices stayed the same, so expensive weapons still can't just be spammed.
+-- Income was raised twice (user, 2026-10-26: getting up to a Flamethrower in a 90s
+-- round felt too hard). Prices stayed the same, so expensive weapons still can't be spammed.
 Config.STARTING_CASH = 150 -- enough for 3 crossbows ($36 each) and 2 bounce pads ($20)
-Config.AIRTIME_CASH_PER_SECOND = 6 -- the longer the noob stays in the air, the more you earn
-Config.DAMAGE_PER_CASH = 20 / 3 -- you get $1 straight away for every this much damage (~6.7)
-Config.ACHIEVEMENT_CASH_MULTIPLIER = 1.5 -- achievement cash rewards are worth this much more
+Config.AIRTIME_CASH_PER_SECOND = 9 -- the longer the noob stays in the air, the more you earn
+Config.DAMAGE_PER_CASH = 4 -- you get $1 straight away for every this much damage
+Config.KILL_CASH = 25 -- bonus for destroying the noob completely
+Config.ACHIEVEMENT_CASH_MULTIPLIER = 2 -- achievement cash rewards are worth this much more
 
 -- The score shown to players is the real damage times this, just so the numbers feel
 -- huge and exciting. It changes nothing in the game itself: body part hit points, cash,

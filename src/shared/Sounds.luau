@@ -23,11 +23,13 @@ Sounds.LIST = {
 	-- stepped on, then a deep blast that throws up dirt.
 	MineClick = { id = 9116543627, volume = 0.7, vary = 0.04 }, -- "Metal Click 1"
 	MineBlast = { id = 9114086405, volume = 0.8, vary = 0.06, lifetime = 5 }, -- "Dirt Explosion 1"
-	-- Grenade: it clatters as it's dropped in, the pin pings out, then a sharp crack
-	-- with bits of shrapnel whizzing past
+	-- Grenade: it clatters as it's dropped in, the pin pings out, it beeps faster and
+	-- faster (and a little higher) as the fuse runs down, then a big heavy boom with
+	-- bits of shrapnel whizzing past
 	GrenadeDrop = { id = 9114659492, volume = 0.6, vary = 0.06 }, -- "Grenade Across Floor 1"
 	PinPull = { id = 9114659662, volume = 0.6, vary = 0.05 },
-	GrenadeBlast = { id = 9119236749, volume = 0.8, vary = 0.06, lifetime = 5 }, -- "Small Explosion 1"
+	GrenadeBeep = { id = 9117060347, volume = 0.55, vary = 0, lifetime = 0.5 }, -- "Nasa Transmission Beep 1" (short clean tone)
+	GrenadeBlast = { id = 9117876706, volume = 0.85, vary = 0.05, lifetime = 6.5 }, -- "Power Explosions Big Heavy Searing Boom 2"
 	Shrapnel = { id = 9119122634, volume = 0.5, vary = 0.1 }, -- "Shrapnel Whiz 1"
 	-- A sparkler's crackle, cut off when the Big TNT's 2.5 second fuse runs out
 	FuseHiss = { id = 9119380593, volume = 0.4, vary = 0.05, lifetime = 2.6 },
@@ -37,16 +39,16 @@ Sounds.LIST = {
 	SawCut1 = { id = 9118775692, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 1"
 	SawCut2 = { id = 9118775709, volume = 0.6, vary = 0.1 }, -- "Saw Blade Sharp 2"
 	FlameBurst = { id = 9114446277, volume = 0.55, vary = 0.08 },
-	-- Laser cannon, in three layers so it sounds as big as it looks: a rising energy
-	-- whine while the lens charges (cut off when it fires), a hard whiplash blast plus
-	-- the classic "pew" when it fires, and a fiery rumble where the beam hits
-	LaserCharge = { id = 9125973984, volume = 0.45, vary = 0.04 }, -- "Spaceship Blast High Pitch Energy Charge Up"
-	LaserBlast = { id = 9114314919, volume = 0.85, vary = 0.06 }, -- "Energy Blasts 14"
-	LaserShot = { id = 9116226117, volume = 0.6, vary = 0.06 }, -- "Laser Blast 1001"
-	LaserImpact = { id = 9120006514, volume = 0.6, vary = 0.08 }, -- "Thruster Blast 6"
+	-- Laser cannon: the most-favorited laser sound on all of Roblox. It's a player's
+	-- upload (public since 2020), not from the official libraries like the rest.
+	LaserShot = { id = 4571098531, volume = 0.7, vary = 0.05 }, -- "Laser Beam Sound Effect"
 	RocketLaunch = { id = 12222065, volume = 0.5, vary = 0.08 },
 	BigBoom = { id = 9114224354, volume = 0.6, vary = 0.05, lifetime = 7 },
 	-- The noob
+	-- The noob crashing into things: a different sound for each surface (see Arena)
+	FloorHit = { id = 9113470969, volume = 0.65, vary = 0.1 }, -- "Body Fall Heavy Rustle 3" (on concrete)
+	WallHit = { id = 9113535217, volume = 0.65, vary = 0.1 }, -- "Body Slam Low End Thump 2"
+	CeilingHit = { id = 9113535176, volume = 0.6, vary = 0.1 }, -- "Body Slam Low End Thump 1"
 	Thud = { id = 9113480915, volume = 0.5, vary = 0.15 },
 	BodyImpact = { id = 9113525391, volume = 0.5, vary = 0.12 },
 	Punch = { id = 9117969687, volume = 0.45, vary = 0.12 },

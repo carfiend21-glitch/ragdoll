@@ -38,7 +38,8 @@ ShopItems.list = {
 	{ id = "UnlockLaser", category = "Weapon", kind = "unlock", weapon = "Laser", name = "Laser Cannon", price = 20 },
 	{ id = "UnlockBigTNT", category = "Weapon", kind = "unlock", weapon = "BigTNT", name = "Big TNT", price = 22 },
 	{ id = "UnlockFlamethrower", category = "Weapon", kind = "unlock", weapon = "Flamethrower", name = "Flamethrower", price = 30 },
-	-- A taste of the Robux-only Rocket Launcher. After about 8 rentals the Game Pass is the better deal.
+	-- A taste of the Robux-only Rocket Launcher, for one round (only used up once it's been
+	-- placed in a round). After about 8 rentals the Game Pass is the better deal.
 	{ id = "RentRocketLauncher", category = "Weapon", kind = "rent", weapon = "RocketLauncher", name = "Rocket Launcher (1 round)", price = 3 },
 
 	-- Noob skins: what the noob in your room looks like (everyone watching sees it too)

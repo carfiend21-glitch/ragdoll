@@ -62,6 +62,9 @@ local LASER_FADE = 0.35 -- seconds the beam takes to thin out and vanish
 local LENS_COLOR = Color3.fromRGB(255, 40, 40)
 local PAD_COLOR = Color3.fromRGB(80, 220, 90)
 local FUSE_COLOR = Color3.fromRGB(255, 60, 60)
+-- Seconds between the grenade's beeps: slow when the pin's just pulled, very fast at the end
+local BEEP_SLOWEST = 0.45
+local BEEP_FASTEST = 0.07
 local FIRST_SHOT_DELAY = 0.4 -- seconds after PLAY before a weapon's first shot
 
 local LIFE_GREEN = Color3.fromRGB(80, 220, 90)
@@ -104,18 +107,10 @@ local function useUp(arena, item)
 	end
 end
 
--- Cuts off the laser's charging whine (when it fires, or a run is paused or ends)
-local function stopLaserCharge(item)
-	if item.chargeSound then
-		item.chargeSound:Stop()
-		item.chargeSound = nil
-	end
-end
-
 -- A run ended: the weapon keeps whatever life it has left, ready for the next run
 function Items.resetForNextRun(item)
-	stopLaserCharge(item)
 	item.timer = nil
+	item.nextBeep = nil
 	item.fuseTime = nil
 	item.burstLeft = 0
 	item.grindTimer = nil
@@ -225,8 +220,8 @@ end
 
 -- Blows up a mine, grenade or TNT
 function Items.detonate(arena, item)
-	if item.broken or arena.items[item.id] ~= item then
-		return
+	if item.broken or arena.items[item.id] ~= item or arena.noob.dead then
+		return -- (once the noob is destroyed, chain reactions stop and explosives are kept)
 	end
 	item.broken = true
 	arena:removeItem(item)
@@ -527,13 +522,10 @@ local function laserEffects(arena, from, to, hit)
 	end
 end
 
--- Before each shot the lens swells up and glows brighter and brighter, with a rising
--- energy whine, so you can see and hear the shot coming
+-- Before each shot the lens swells up and glows brighter and brighter, so you can
+-- see the shot coming
 local function chargeLaser(item)
 	local progress = if item.timer then math.clamp(1 - item.timer / LASER_CHARGE, 0, 1) else 0
-	if progress > 0 and not item.chargeSound then
-		item.chargeSound = Sounds.playAt("LaserCharge", item.position)
-	end
 	local grow = 1 + progress * 1.3
 	item.lens.Size = Vector3.new(item.lensSize.X, item.lensSize.Y * grow, item.lensSize.Z * grow)
 	item.lens.Color = LENS_COLOR:Lerp(Color3.fromRGB(255, 230, 230), progress)
@@ -551,12 +543,9 @@ local function fireLaser(arena, item)
 
 	laserEffects(arena, muzzle.Position, target, result ~= nil)
 	arena.recorder:event("laser", { position = muzzle.Position, target = target })
-	stopLaserCharge(item) -- the whine stops the moment it fires
-	Sounds.playAt("LaserBlast", item.position)
 	Sounds.playAt("LaserShot", item.position)
 
 	if result then
-		Sounds.playAt("LaserImpact", result.Position)
 		local part = result.Instance
 		part.AssemblyLinearVelocity += muzzle.LookVector * 12
 		arena.ignoreImpactUntil = os.clock() + 0.05
@@ -715,6 +704,9 @@ end
 
 -- The noob's `bodyPart` touched the item
 function Items.touched(arena, item, bodyPart)
+	if arena.noob.dead then
+		return -- torn-off pieces landing on traps don't set them off
+	end
 	local id = item.weapon.id
 	if id == "Mine" then
 		Items.detonate(arena, item)
@@ -736,15 +728,17 @@ function Items.step(arena, item, dt)
 			item.model:PivotTo(CFrame.lookAt(item.position, target))
 		end
 	end
-	if item.spinSound and item.spinSound.Playing ~= arena.running then
-		item.spinSound.Playing = arena.running
+	-- Weapons hold still while paused, and once the noob has been destroyed (nothing
+	-- keeps attacking the pieces, or wastes its uses on them)
+	local active = arena.running and not arena.noob.dead
+	if item.spinSound and item.spinSound.Playing ~= active then
+		item.spinSound.Playing = active
 	end
-	if not arena.running then
+	if not active then
 		if item.flames then
 			item.flames.Enabled = false
 		end
-		stopLaserCharge(item)
-		return -- paused
+		return
 	end
 
 	if weapon.fireInterval then
@@ -766,6 +760,13 @@ function Items.step(arena, item, dt)
 		if item.body then
 			local blinkSpeed = 4 + 12 * item.fuseTime / weapon.fuse
 			item.body.Color = if math.floor(item.fuseTime * blinkSpeed) % 2 == 0 then item.bodyColor else FUSE_COLOR
+		end
+		-- The grenade beeps: beep... beep.. beep.beep.beep, faster and a little higher as
+		-- the fuse runs out, so you can feel it about to go off
+		if weapon.id == "Grenade" and item.fuseTime >= (item.nextBeep or 0) then
+			local left = 1 - item.fuseTime / weapon.fuse -- 1 when lit, 0 when it blows
+			item.nextBeep = item.fuseTime + BEEP_FASTEST + (BEEP_SLOWEST - BEEP_FASTEST) * left
+			Sounds.playAt("GrenadeBeep", item.position).PlaybackSpeed = 1 + (1 - left) * 0.35
 		end
 		if item.fuseTime >= weapon.fuse then
 			Items.detonate(arena, item)

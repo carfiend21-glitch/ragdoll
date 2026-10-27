@@ -293,15 +293,36 @@ function PlayerData.getEquipped(player)
 end
 
 -- A rented weapon got used for a round: it's gone now
+-- A rented weapon was placed in a round: it'll be used up when that round ends
+function PlayerData.useRental(player, weaponId)
+	local profile = profiles[player]
+	if profile and profile.rentals[weaponId] then
+		profile.rentalsUsed = profile.rentalsUsed or {}
+		profile.rentalsUsed[weaponId] = true
+	end
+end
+
+-- The round ended: rented weapons that got placed are used up. Ones they rented but
+-- never got to place (say they couldn't afford it that round) stay for next round.
+-- Returns true if anything was used up.
 function PlayerData.endRentals(player)
 	local profile = profiles[player]
-	if profile and next(profile.rentals) then
-		profile.rentals = {}
+	if not profile or not profile.rentalsUsed then
+		return false
+	end
+	local changed = false
+	for weaponId in profile.rentalsUsed do
+		if profile.rentals[weaponId] then
+			profile.rentals[weaponId] = nil
+			changed = true
+		end
+	end
+	profile.rentalsUsed = nil
+	if changed then
 		profile.dirty = true
 		saveSoon(player, profile)
-		return true
 	end
-	return false
+	return changed
 end
 
 -- Returns true if this is a brand-new unlock

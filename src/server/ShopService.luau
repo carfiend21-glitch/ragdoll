@@ -111,7 +111,7 @@ local function buy(player, id)
 			return
 		end
 		if item.kind == "rent" and PlayerData.isRenting(player, item.weapon) then
-			Remotes.Notify:FireClient(player, "ALREADY RENTED", "It's yours until the end of your next round.")
+			Remotes.Notify:FireClient(player, "ALREADY RENTED", "It's yours until the end of the next round you place it in.")
 			return
 		end
 	elseif PlayerData.ownsShopItem(player, id) then
@@ -127,7 +127,7 @@ local function buy(player, id)
 		Remotes.DataSync:FireClient(player, PlayerData.getSyncData(player))
 	end
 	local subtitle = if item.kind == "rent"
-		then "Use it until the end of your next round!"
+		then "Use it for one round: it lasts until the end of the round you place it in."
 		elseif item.kind == "unlock" then "It's on your weapon bar now."
 		else "Equipped!"
 	Remotes.Notify:FireClient(player, "🛍️ " .. name:upper(), subtitle)
