@@ -18,7 +18,7 @@ local TITLE_FONT = Enum.Font.LuckiestGuy
 local WHITE = Color3.new(1, 1, 1)
 local ORANGE = Color3.fromRGB(240, 140, 30)
 local GOLD = Color3.fromRGB(255, 205, 50)
-local MIN_SECONDS = 2.5 -- always show it at least this long, so it doesn't just flash
+local SHOW_SECONDS = 5 -- the bar fills evenly over this long (longer only if loading is still going)
 local NOOB_SCALE = 1.5 -- same size as the real noob (Config.NOOB_SCALE)
 local ROOM = Vector3.new(44, 27.5, 10) -- same size as the real rooms (Config.ROOM_SIZE)
 local TIPS = {
@@ -29,8 +29,6 @@ local TIPS = {
 	"Tear off all four limbs for a secret achievement...",
 	"Weapons get used up, so place them wisely.",
 }
-
-ReplicatedFirst:RemoveDefaultLoadingScreen()
 
 local function label(props)
 	local textLabel = Instance.new("TextLabel")
@@ -201,6 +199,10 @@ local tipLabel = label({
 -- Animating it
 ---------------------------------------------------------------------------
 
+-- Our screen is up now, so Roblox's own loading screen can go (removing it any
+-- earlier would leave a moment showing the empty void)
+ReplicatedFirst:RemoveDefaultLoadingScreen()
+
 local startTime = os.clock()
 local target = 0 -- where the bar is heading (0 to 1)
 local shown = 0 -- where the bar is right now
@@ -213,8 +215,9 @@ local connection = RunService.RenderStepped:Connect(function(dt)
 		* CFrame.Angles(0, math.pi + math.sin(t * 0.7) * 0.25, math.sin(t * 1.1) * 0.08)
 	noob:PivotTo(float)
 
-	-- The bar slides smoothly toward how much has really loaded
-	shown += (target - shown) * math.min(1, dt * 6)
+	-- The bar fills evenly over SHOW_SECONDS, but never gets ahead of what has really loaded
+	local goal = math.min(target, t / SHOW_SECONDS)
+	shown += (goal - shown) * math.min(1, dt * 6)
 	fill.Size = UDim2.fromScale(shown, 1)
 	percentLabel.Text = ("LOADING... %d%%"):format(math.floor(shown * 100 + 0.5))
 
@@ -276,7 +279,7 @@ end
 target = 1
 
 -- Let the bar reach 100% (and show for at least a moment), then fade out
-while shown < 0.995 or os.clock() - startTime < MIN_SECONDS do
+while shown < 0.995 do
 	task.wait()
 end
 percentLabel.Text = "READY!"
