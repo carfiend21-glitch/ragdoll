@@ -206,6 +206,54 @@ local function buildLeaderboard(lobby, position, titleText, accent)
 	return rows
 end
 
+-- The "HOW TO PLAY" board: short steps for new players. Stands at `position` (its
+-- feet), facing `lookAt`.
+local HOW_TO_PLAY = {
+	"🧍 Each round you get your <b>own room</b> and a noob. You have <b>%d seconds</b>.",
+	"🛒 Pick weapons from the <b>bottom bar</b> and drag them into your room.",
+	"▶️ Press <b>PLAY</b>: weapons fire by themselves. Smash the noob for <b>points</b>!",
+	"💥 Combos, air time and torn-off limbs earn more points and cash.",
+	"🏆 Most points wins the round and a <b>Noob Buck</b> 💵.",
+	"🔓 Earn <b>achievements</b> to unlock new weapons. Drag weapons to 🗑️ to sell them.",
+}
+
+local function buildHowToPlay(lobby, position, lookAt)
+	local facing = CFrame.lookAt(position, Vector3.new(lookAt.X, position.Y, lookAt.Z))
+	local board = newPart(lobby, "HowToPlay", Vector3.new(16, 9, 0.6), facing * CFrame.new(0, 5.5, 0), Color3.fromRGB(20, 18, 30))
+	newPart(lobby, "HowToPlayGlow", Vector3.new(16.6, 9.6, 0.3), facing * CFrame.new(0, 5.5, 0.35), LOBBY.neonCyan, Enum.Material.Neon)
+	for _, x in { -6, 6 } do
+		newPart(lobby, "HowToPlayPost", Vector3.new(0.8, 1, 0.8), facing * CFrame.new(x, 0.5, 0), LOBBY.dark, Enum.Material.Metal)
+	end
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front -- the side facing `lookAt`
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.Parent = board
+	local title = Instance.new("TextLabel")
+	title.Position = UDim2.fromScale(0, 0.02)
+	title.Size = UDim2.fromScale(1, 0.17)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.LuckiestGuy
+	title.TextScaled = true
+	title.TextColor3 = LOBBY.neonCyan
+	title.Text = "HOW TO PLAY"
+	title.Parent = gui
+	for index, line in HOW_TO_PLAY do
+		local row = Instance.new("TextLabel")
+		row.Position = UDim2.new(0.04, 0, 0.2 + (index - 1) * 0.13, 0)
+		row.Size = UDim2.new(0.92, 0, 0.115, 0)
+		row.BackgroundTransparency = 1
+		row.Font = Enum.Font.FredokaOne
+		row.RichText = true
+		row.TextScaled = true
+		row.TextXAlignment = Enum.TextXAlignment.Left
+		row.TextColor3 = Color3.new(1, 1, 1)
+		row.Text = line:format(Config.ROUND_TIME)
+		row.Parent = gui
+	end
+end
+
 -- Builds the lobby. Returns { screen, winsRows, runRows }: the big screen's text,
 -- and the rows of the two global leaderboards.
 function WorldBuilder.buildLobby()
@@ -301,6 +349,9 @@ function WorldBuilder.buildLobby()
 	-- Global leaderboards on either side of the statue, facing the spawn
 	local winsRows = buildLeaderboard(lobby, top + Vector3.new(-12, 0, -2), "🏆 MOST WINS", LOBBY.gold)
 	local runRows = buildLeaderboard(lobby, top + Vector3.new(12, 0, -2), "💥 MOST POINTS", LOBBY.neonPink)
+
+	-- "How to play" right behind the spawn (in front of room 1), facing the spawn
+	buildHowToPlay(lobby, top + Vector3.new(0, 0, 38.5), top + Vector3.new(0, 0, 30))
 
 	-- Invisible walls all the way round, tall enough that nobody can jump off the lobby
 	for index = 1, 32 do
