@@ -26,7 +26,7 @@ Noob Bucks, so the pass feels like the "real" deal.
 | Missile Swarm | (no pass) | Noob Bucks only |
 | Black Hole | R$ 299 | **Robux only** (see below) |
 | Mini Nuke | R$ 399 | **Robux only** (see below), the "flex" one |
-| Rocket Launcher | R$ 99 | Already in the game (Robux only) |
+| Rocket Launcher | (no pass) | Noob Bucks only (35) |
 | Grenade (early) | R$ 25 | Already in the game (skip the achievement) |
 
 ## 2x Noob Bucks (code ready: just paste the IDs)

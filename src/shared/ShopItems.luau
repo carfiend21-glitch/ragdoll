@@ -54,6 +54,7 @@ ShopItems.list = {
 	{ id = "UnlockRailgun", category = "Exclusive", kind = "unlock", weapon = "Railgun", name = "Railgun", price = 30, new = true },
 	{ id = "UnlockMinigun", category = "Exclusive", kind = "unlock", weapon = "Minigun", name = "Minigun", price = 40, new = true },
 	{ id = "UnlockMissileSwarm", category = "Exclusive", kind = "unlock", weapon = "MissileSwarm", name = "Missile Swarm", price = 40, new = true },
+	{ id = "UnlockRocketLauncher", category = "Exclusive", kind = "unlock", weapon = "RocketLauncher", name = "Rocket Launcher", price = 35, new = true },
 	-- Robux only: these two can't be bought with Noob Bucks (only tried for a round, below).
 	-- `price` is 0 because they cost no Noob Bucks; `robux` is what the Game Pass costs.
 	{ id = "RobuxBlackHole", category = "Exclusive", kind = "robux", weapon = "BlackHole", name = "Black Hole", price = 0, robux = 299, new = true },
