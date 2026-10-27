@@ -9,7 +9,9 @@
 -- `price` = cash ($) it costs to place one in your room (you get it back if you sell it).
 -- `damage` = about how much damage one does in total (shown in the shop, and what the
 --   price is based on). Crash damage from knocking the noob around comes on top.
+-- `infiniteDamage` = it destroys the noob outright, so the shop shows ∞ for its damage.
 -- `maxPlaced` = how many of this weapon can be in your room at once.
+-- `oncePerRound` = once one has gone off, no more can be placed until the next round.
 -- `uses` = how many times it works before it breaks.
 -- `unlockedBy` = the achievement that unlocks it (starter weapons are always unlocked).
 -- `exclusive` = it isn't unlocked by an achievement: it's bought in the shop. Most are
@@ -443,18 +445,20 @@ Weapons.list = {
 		onFloor = false,
 		size = Vector3.new(3, 3, 3),
 	},
-	-- ~250 damage: sucks the noob in and grinds it for 4 seconds, then collapses in a big blast
+	-- Infinite damage: sucks the noob into the void (it's destroyed), then shrinks away to
+	-- nothing. If it can't catch the noob within 6 seconds, it shrinks away anyway.
 	{
 		id = "BlackHole",
 		name = "Black Hole",
 		icon = "🕳️",
 		price = 210,
 		damage = 250,
-		maxPlaced = 1,
-		description = "Sucks the noob in and spins it round for 4 seconds, then collapses with a BOOM.",
+		infiniteDamage = true,
+		maxPlaced = 2,
+		description = "Sucks the noob into the void, then shrinks away to the size of an atom.",
 		exclusive = true,
 		gamePassId = 2060122429, -- ROBUX ONLY (not Noob Bucks): R$ 299
-		fuse = 4,
+		fuse = 6,
 		uses = 1,
 		onFloor = false,
 		size = Vector3.new(4, 4, 2),
@@ -475,16 +479,18 @@ Weapons.list = {
 		onFloor = false,
 		size = Vector3.new(3, 3, 3),
 	},
-	-- ~330 damage, guaranteed, 3 seconds after PLAY: a blast that fills the whole room
-	-- and sets every body part on fire
+	-- Infinite damage, 3 seconds after PLAY: a blast that fills the whole room, destroys the
+	-- noob, and leaves radiation that hurts it for the rest of the round. One per round.
 	{
 		id = "MiniNuke",
 		name = "Mini Nuke",
 		icon = "☢️",
 		price = 250,
 		damage = 330,
+		infiniteDamage = true,
 		maxPlaced = 1,
-		description = "3... 2... 1... a blast that fills the WHOLE room and sets the noob on fire.",
+		oncePerRound = true,
+		description = "3... 2... 1... destroys the noob and leaves radiation for the rest of the round. One per round!",
 		exclusive = true,
 		gamePassId = 2058238493, -- ROBUX ONLY (not Noob Bucks): R$ 399
 		explosive = true,

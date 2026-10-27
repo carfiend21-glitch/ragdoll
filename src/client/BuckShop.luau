@@ -330,6 +330,9 @@ end
 -- "💥 ~170 dmg · $1,900" under a weapon's name: what it does, and what it costs in a round
 local function weaponStats(weaponId)
 	local weapon = Weapons.byId[weaponId]
+	if weapon.infiniteDamage then
+		return ("💥 ∞ dmg · %s"):format(Config.formatCash(weapon.price))
+	end
 	return ("💥 ~%d dmg · %s"):format(weapon.damage, Config.formatCash(weapon.price))
 end
 

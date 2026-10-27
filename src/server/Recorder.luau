@@ -65,7 +65,9 @@ function Recorder:step()
 	local items = {}
 	for id, item in self.arena.items do
 		if item.model.Parent then
-			table.insert(items, { id, item.weapon.id, origin:ToObjectSpace(item.model:GetPivot()) })
+			-- (4th: how big it is, only while it isn't full size, like a shrinking black hole)
+			local scale = item.model:GetScale()
+			table.insert(items, { id, item.weapon.id, origin:ToObjectSpace(item.model:GetPivot()), if scale ~= 1 then scale else nil })
 		end
 	end
 	-- Arrows and rockets in flight (and arrows stuck in the walls): { "Arrow" or "Rocket", CFrame }
@@ -81,6 +83,8 @@ end
 --   "damage" { damage = new total }      "hit" { position, points (score), damage (real), part }
 --   "boom" { position, radius }           "arrow" { part = body part number, offset = CFrame }
 --   "torn" { part = body part number }    "play" / "pause" / "restart"
+--   "nuke" { position }                   "radiation" (the room glows for the rest of the round)
+--   "swallow" { position } (the black hole swallowed the noob)
 -- Positions (`position`, `target`) and directions are given in the world and stored in
 -- the room's own directions.
 function Recorder:event(kind, fields)

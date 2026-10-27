@@ -35,6 +35,7 @@ local NOOB_SIZES = {
 	["Right Leg"] = Vector3.new(1, 2, 1),
 }
 local CHARRED = Color3.fromRGB(35, 30, 28)
+local RADIATION_COLOR = Color3.fromRGB(180, 255, 60) -- like the real room after a nuke
 local SAW_SPIN = 12 -- radians per second, like the real saw
 local MAX_SPLATS = 120 -- per replay
 local MAX_POPUPS = 6 -- per replay
@@ -310,6 +311,59 @@ local function boom(cell, position, radius)
 	end)
 end
 
+-- The nuke: a white flash and a fireball that fill the whole room
+local function nukeBlast(cell, position)
+	local speed = 1 / currentSpeed
+	local room = Config.ROOM_SIZE
+	local middle = CFrame.new(0, room.Y / 2, 0)
+	-- The whole room flashes white, then orange
+	for _, flash in { { WHITE, 0.8 }, { Color3.fromRGB(255, 140, 40), 2 } } do
+		local part = newPart(cell.viewport, room - Vector3.new(0.2, 0.2, 0.2), middle, flash[1], Enum.Material.Neon)
+		TweenService:Create(part, TweenInfo.new(flash[2] * speed, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+		task.delay(flash[2] * speed + 0.1, part.Destroy, part)
+	end
+	-- ...with a fireball swelling up from the nuke
+	local fire = newPart(cell.viewport, Vector3.one, CFrame.new(position), Color3.fromRGB(255, 220, 110), Enum.Material.Neon, Enum.PartType.Ball)
+	TweenService:Create(fire, TweenInfo.new(1.4 * speed), { Size = Vector3.one * (room.Y - 0.5), CFrame = middle, Transparency = 1 }):Play()
+	task.delay(1.4 * speed + 0.1, fire.Destroy, fire)
+end
+
+-- After a nuke the room glows yellowish green for the rest of the round
+local function radiate(cell)
+	if cell.radiation then
+		return
+	end
+	local room = Config.ROOM_SIZE
+	cell.radiation = newPart(cell.viewport, room - Vector3.new(0.2, 0.2, 0.2), CFrame.new(0, room.Y / 2, 0), RADIATION_COLOR, Enum.Material.Neon)
+	cell.radiation.Transparency = 0.86
+end
+
+-- The black hole swallowed the noob: it shrinks away into the middle
+local function swallow(cell)
+	local tween = TweenInfo.new(0.5 / currentSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	for _, part in cell.noobParts do
+		TweenService:Create(part, tween, { Size = Vector3.one * 0.05, Transparency = 1 }):Play()
+		for _, decal in part:GetChildren() do
+			if decal:IsA("Decal") then
+				decal.Transparency = 1
+			end
+		end
+	end
+end
+
+-- A fresh noob: back to full size and visible (after being swallowed)
+local function restoreNoob(cell)
+	for index, part in cell.noobParts do
+		part.Size = NOOB_SIZES[Config.NOOB_PART_ORDER[index]] * S
+		part.Transparency = 0
+		for _, decal in part:GetChildren() do
+			if decal:IsA("Decal") then
+				decal.Transparency = 0
+			end
+		end
+	end
+end
+
 -- A flat round splat of blood on a surface (`normal` points into the room)
 local function splat(cell, position, normal, diameter)
 	local side = normal:Cross(if math.abs(normal.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis).Unit
@@ -526,6 +580,13 @@ local function handleEvent(cell, event)
 		cell.damage = event.damage
 	elseif kind == "boom" then
 		boom(cell, event.position, event.radius)
+	elseif kind == "nuke" then
+		nukeBlast(cell, event.position)
+	elseif kind == "radiation" then
+		radiate(cell)
+	elseif kind == "swallow" then
+		clearStuck(cell) -- arrows and stumps go with it
+		swallow(cell)
 	elseif kind == "hit" then
 		bleed(cell, event.position, event.damage or event.points) -- blood goes by the real damage
 		popup(cell, event.position, event.points, event.part)
@@ -564,6 +625,7 @@ local function handleEvent(cell, event)
 		cell.restartShownUntil = event.t + 1.5
 		clearStuck(cell) -- fresh noob: no arrows, stumps or burns
 		resetColors(cell)
+		restoreNoob(cell)
 	end
 end
 
@@ -610,6 +672,10 @@ local function updateCell(cell, t)
 			ShopItems.applyFinish(model, cell.finish)
 			model.Parent = cell.viewport
 			cell.items[id] = model
+		end
+		local scale = entry[4] or 1 -- (a black hole shrinking away)
+		if math.abs(model:GetScale() - scale) > 0.001 then
+			model:ScaleTo(scale)
 		end
 		local pivot = if nextItems[id] then blend(cframe, nextItems[id], alpha) else cframe
 		model:PivotTo(pivot)

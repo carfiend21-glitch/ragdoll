@@ -240,21 +240,6 @@ function Hud:_buildLobby()
 		BackgroundTransparency = 1,
 		Parent = self.modal,
 	})
-
-	self:_buildLobbyCash()
-end
-
--- Your cash, shown in the lobby too: the amount you'll start the next round with.
--- (Robux weapons are bought by clicking their locked button on the weapon bar.)
-function Hud:_buildLobbyCash()
-	self.lobbyCash = text({
-		Size = UDim2.fromOffset(210, 34),
-		Font = TITLE_FONT,
-		TextColor3 = Color3.fromRGB(120, 230, 120),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = Config.formatCash(player:GetAttribute("Cash") or Config.STARTING_CASH),
-		Parent = self.lobby,
-	})
 end
 
 function Hud:_buildTopBar()
@@ -860,7 +845,6 @@ function Hud:_applyLayout()
 
 	self.lobbyStatus.Position = UDim2.new(0.5, 0, 0, layout.inset + 6)
 	self.achievementsButton.Position = UDim2.fromOffset(12, layout.inset + 8)
-	self.lobbyCash.Position = UDim2.fromOffset(16, layout.inset + 56)
 end
 
 -- Where achievement pop-ups slide down to
@@ -1145,7 +1129,6 @@ end
 function Hud:_refreshCash()
 	local cash = player:GetAttribute("Cash") or 0
 	self.cashLabel.Text = Config.formatCash(cash)
-	self.lobbyCash.Text = Config.formatCash(cash)
 	for weaponId, weaponButton in self.weaponButtons do
 		local affordable = cash >= Weapons.byId[weaponId].price
 		weaponButton.Price.TextColor3 = if affordable then Color3.fromRGB(120, 230, 120) else RED
@@ -1265,6 +1248,7 @@ end
 
 local SOURCE_NAMES = {
 	Impact = "crash",
+	Radiation = "☢️ radiation",
 	Crossbow = "crossbow",
 	Mine = "land mine",
 	Grenade = "grenade",

@@ -1,6 +1,7 @@
 -- One player's room: the noob, the weapons placed in it, and the damage score.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -28,6 +29,11 @@ local AIRBORNE_HEIGHT = 3.5 -- every body part must be this high off the floor t
 local PLACE_SOUNDS = { Mine = "MineClick", Grenade = "GrenadeDrop", BearTrap = "MineClick" }
 -- While the noob is frozen solid (Freeze Ray), every body part takes this much more damage
 local ICED_BONUS = 1.5
+-- After a nuke, the room stays radioactive for the rest of the round: every so often
+-- during a run, one body part takes a little damage
+local RADIATION_TICK = 0.4
+local RADIATION_DAMAGE = 2
+local RADIATION_COLOR = Color3.fromRGB(180, 255, 60) -- yellowish green
 
 local Arena = {}
 Arena.__index = Arena
@@ -121,6 +127,96 @@ function Arena:resetScore()
 	self.airTime = 0 -- seconds in the air not yet paid out as cash
 	self.roundStats = { arrowHits = 0, mineHits = 0, destroys = 0, limbsTorn = 0 } -- for achievements
 	self.runStats = { wallHits = 0 }
+	self.nukeUsed = false -- one nuke per round
+	self:_stopRadiation()
+end
+
+-- The nuke went off: the room glows yellowish green with radiation until the round ends
+function Arena:startRadiation()
+	self.nukeUsed = true
+	if self.radiation then
+		return
+	end
+	local glow = Instance.new("Part")
+	glow.Name = "Radiation"
+	glow.Anchored = true
+	glow.CanCollide = false
+	glow.CanTouch = false
+	glow.CanQuery = false -- clicks and drops go straight through it
+	glow.CastShadow = false
+	glow.Material = Enum.Material.Neon
+	glow.Color = RADIATION_COLOR
+	glow.Transparency = 0.86
+	glow.Size = Config.ROOM_SIZE - Vector3.new(0.2, 0.2, 0.2)
+	glow.CFrame = self.roomCFrame * CFrame.new(0, Config.ROOM_SIZE.Y / 2, 0)
+	-- Glowing specks drifting up through the air
+	local specks = Instance.new("ParticleEmitter")
+	specks.Color = ColorSequence.new(RADIATION_COLOR)
+	specks.LightEmission = 1
+	specks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 0.4) })
+	specks.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	specks.Lifetime = NumberRange.new(2, 4)
+	specks.Rate = 25
+	specks.Speed = NumberRange.new(0.5, 1.5)
+	specks.SpreadAngle = Vector2.new(180, 180)
+	specks.Acceleration = Vector3.new(0, 0.6, 0)
+	specks.Parent = glow
+	local light = Instance.new("PointLight")
+	light.Color = RADIATION_COLOR
+	light.Range = 30
+	light.Brightness = 1.2
+	light.Parent = glow
+	glow.Parent = self.room
+	-- It pulses gently
+	TweenService:Create(glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Transparency = 0.92 }):Play()
+	self.radiation = glow
+	self.radiationTimer = RADIATION_TICK
+	self.recorder:event("radiation")
+end
+
+function Arena:_stopRadiation()
+	if self.radiation then
+		self.radiation:Destroy()
+		self.radiation = nil
+	end
+end
+
+-- Radiation burns one random body part at a time while a run is going
+function Arena:_stepRadiation(dt)
+	if not self.radiation or not self.inRun or self.noob.dead then
+		return
+	end
+	self.radiationTimer -= dt
+	if self.radiationTimer > 0 then
+		return
+	end
+	self.radiationTimer = RADIATION_TICK
+	local attached = {}
+	for _, part in self.noob.parts do
+		if self.noob.attached[part] then
+			table.insert(attached, part)
+		end
+	end
+	if #attached > 0 then
+		self:hit("Radiation", nil, { { part = attached[math.random(#attached)], amount = RADIATION_DAMAGE } })
+	end
+end
+
+-- Infinite damage (the nuke and the black hole): every body part loses all the hit
+-- points it has left, arms and legs first, so the noob is destroyed
+function Arena:destroyNoob(source, item)
+	if self.noob.dead then
+		return
+	end
+	local hits = {}
+	for index = #self.noob.parts, 1, -1 do
+		local part = self.noob.parts[index]
+		if self.noob.attached[part] then
+			local key = Config.BODY_PARTS_BY_NAME[part.Name].key
+			table.insert(hits, { part = part, amount = self.noob.health[key] + 1 })
+		end
+	end
+	self:hit(source, item, hits)
 end
 
 -- A fresh noob, floating (paused) in the middle of the room
@@ -285,6 +381,10 @@ function Arena:placeItem(player, weaponId, position)
 	end
 	if sameKind >= weapon.maxPlaced then
 		Remotes.Hint:FireClient(player, ("You can only place %d %s at a time."):format(weapon.maxPlaced, weapon.name))
+		return
+	end
+	if weapon.oncePerRound and self.nukeUsed then
+		Remotes.Hint:FireClient(player, ("☢️ You already used your %s this round! Only one per round."):format(weapon.name))
 		return
 	end
 	-- Each weapon you place costs cash, like in the original game
@@ -654,6 +754,7 @@ function Arena:step(dt)
 	if self.running then
 		self:_stepFire(dt)
 		self:_stepAirTime(dt)
+		self:_stepRadiation(dt)
 	end
 	if self.icedUntil and os.clock() >= self.icedUntil then
 		self.icedUntil = nil

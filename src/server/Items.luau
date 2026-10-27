@@ -1,6 +1,7 @@
 -- What each weapon/trap does once it's placed in a room.
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -22,8 +23,6 @@ local BLASTS = {
 	ClusterBomb = { radius = 11, power = 70, damage = 28 },
 	-- Big enough to fill the whole room
 	MiniNuke = { radius = 40, power = 140, damage = 55 },
-	-- When the black hole collapses at the end
-	BlackHole = { radius = 14, power = 110, damage = 40 },
 }
 local ROCKET_BLAST = { radius = 11, power = 80, damage = 35 }
 local BOMBLET_BLAST = { radius = 7, power = 45, damage = 18 } -- each of the cluster bomb's little bombs
@@ -168,12 +167,16 @@ local MINIGUN_SPEED = 100
 local MISSILE_SPEED = 40
 local MISSILE_TURN = math.rad(300) -- how fast (per second) a missile can turn to chase the noob
 -- Black hole
-local PULL_RANGE = 20
+local PULL_RANGE = 50 -- reaches anywhere in the room
 local PULL_STRENGTH = 140
 local SWIRL_STRENGTH = 60
-local GRIND_RADIUS = 3.2 -- body parts this close to the middle get torn at
+local GRIND_RADIUS = 3.2 -- arms and legs this close to the middle get torn at
 local GRIND_DAMAGE = 5
 local GRIND_TICK = 0.25
+local SWALLOW_RADIUS = 3.2 -- once the torso or head gets this close, the noob is swallowed
+local SWALLOW_TIME = 0.5 -- seconds for the noob to vanish into it
+local SHRINK_TIME = 1.3 -- seconds for the black hole to shrink away to nothing afterwards
+local ATOM_SCALE = 0.01 -- how small it gets before it's gone
 -- Cluster bomb
 local BOMBLETS = 5
 
@@ -484,7 +487,38 @@ local function throwBomblets(arena, item, center)
 	end
 end
 
--- Blows up a mine, grenade, TNT, cluster bomb or nuke, or collapses a black hole
+-- The whole inside of the room lights up in `color`, then fades over `seconds`
+-- (exactly room-sized, so it never spills into the rooms next door)
+local function roomFlash(arena, color, seconds)
+	local room = Config.ROOM_SIZE
+	local glow = laserPart(arena.room, room - Vector3.new(0.2, 0.2, 0.2), arena.roomCFrame * CFrame.new(0, room.Y / 2, 0), color)
+	TweenService:Create(glow, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	Debris:AddItem(glow, seconds + 0.05)
+end
+
+-- The nuke's blast: a blinding white flash and a fireball that fill the whole room,
+-- with explosions going off all over it
+local function nukeFlash(arena, position)
+	local room = Config.ROOM_SIZE
+	local middle = arena.roomCFrame * CFrame.new(0, room.Y / 2, 0)
+	roomFlash(arena, Color3.new(1, 1, 1), 0.8)
+	roomFlash(arena, Color3.fromRGB(255, 140, 40), 2)
+	puff(arena.room, middle.Position, room.Y - 0.5, Color3.fromRGB(255, 220, 110), 1.4)
+	for _, spot in { { -0.35, 0.2 }, { 0.35, 0.2 }, { -0.2, 0.6 }, { 0.2, 0.6 }, { 0, 0.85 }, { -0.4, 0.85 }, { 0.4, 0.85 } } do
+		task.delay(math.random() * 0.4, function()
+			local explosion = Instance.new("Explosion")
+			explosion.Position = (arena.roomCFrame * CFrame.new(spot[1] * room.X, spot[2] * room.Y, 0)).Position
+			explosion.BlastRadius = 12
+			explosion.BlastPressure = 0 -- just for show
+			explosion.DestroyJointRadiusPercent = 0
+			explosion.ExplosionType = Enum.ExplosionType.NoCraters
+			explosion.Parent = arena.room
+		end)
+	end
+	arena.recorder:event("nuke", { position = position })
+end
+
+-- Blows up a mine, grenade, TNT, cluster bomb or nuke
 function Items.detonate(arena, item)
 	if item.broken or arena.items[item.id] ~= item or arena.noob.dead then
 		return -- (once the noob is destroyed, chain reactions stop and explosives are kept)
@@ -504,21 +538,21 @@ function Items.detonate(arena, item)
 	elseif id == "MiniNuke" then
 		Sounds.playAt("NukeBlast", item.position)
 		Sounds.playAt("BigBoom", item.position)
-		-- A blinding white flash that fills the room
-		puff(arena.room, item.position, 40, Color3.new(1, 1, 1), 0.7)
-	elseif id == "BlackHole" then
-		Sounds.playAt("BlackHoleBoom", item.position)
-		puff(arena.room, item.position, 16, Color3.fromRGB(190, 110, 255), 0.5)
+		nukeFlash(arena, item.position)
 	end
 	arena:explode(item.position, blast.radius, blast.power, blast.damage, item)
 
 	if id == "ClusterBomb" then
 		throwBomblets(arena, item, item.position)
 	elseif id == "MiniNuke" then
+		-- Infinite damage: nothing survives a nuke
+		arena:destroyNoob(id, item)
 		-- Everything that's left of the noob catches fire
 		for _, part in arena.noob.parts do
 			arena:ignite(part, BURN_TIME * 0.7)
 		end
+		-- ...and the room stays radioactive for the rest of the round
+		arena:startRadiation()
 	end
 
 	-- A land mine launches the noob away from whatever it's stuck to: up off the floor,
@@ -1566,9 +1600,59 @@ local function stepWreckingBall(arena, item, dt)
 	end
 end
 
--- Sucks everything in and swirls it round, tearing at whatever gets right into the middle
+-- The black hole is done: it shrinks smaller and smaller, spinning faster, until it's
+-- the size of an atom, and then it's gone
+local function collapseBlackHole(arena, item)
+	item.broken = true -- used up (Items.step leaves it alone from now on)
+	item.uses = 0
+	if item.loopSound then
+		item.loopSound.Playing = false
+	end
+	task.spawn(function()
+		local elapsed = 0
+		while elapsed < SHRINK_TIME and arena.items[item.id] == item do
+			local step = RunService.Heartbeat:Wait()
+			elapsed += step
+			local shrink = math.clamp(elapsed / SHRINK_TIME, 0, 1)
+			local center = item.model:GetPivot()
+			spinRound(item.spinParts, center.Position, center.LookVector, (4 + 20 * shrink) * step)
+			-- Slow at first, then faster and faster
+			item.model:ScaleTo(math.max(ATOM_SCALE, 1 - shrink * shrink))
+		end
+		arena:removeItem(item)
+	end)
+end
+
+-- The noob reached the middle: it's sucked into the void (infinite damage), vanishing
+-- into the black hole, and then the black hole shrinks away
+local function swallow(arena, item)
+	local center = item.model:GetPivot().Position
+	Sounds.playAt("BlackHoleBoom", center, 0.6)
+	arena:destroyNoob("BlackHole", item)
+	arena.recorder:event("swallow", { position = center })
+	local tween = TweenInfo.new(SWALLOW_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	for _, part in arena.noob.model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+			TweenService:Create(part, tween, { Size = Vector3.one * 0.05, Position = center, Transparency = 1 }):Play()
+		elseif part:IsA("Decal") then
+			part.Transparency = 1
+		end
+	end
+	collapseBlackHole(arena, item)
+end
+
+-- Sucks everything in and swirls it round, tearing at arms and legs that get right into
+-- the middle, and swallows the noob once its body gets there
 local function stepBlackHole(arena, item, dt)
 	local center = item.model:GetPivot()
+	for _, part in { arena.noob.torso, arena.noob.parts[2] } do
+		if arena.noob.attached[part] and (part.Position - center.Position).Magnitude <= SWALLOW_RADIUS then
+			swallow(arena, item)
+			return
+		end
+	end
 	spinRound(item.spinParts, center.Position, center.LookVector, 4 * dt)
 	local space = arena.roomCFrame.Rotation
 	local towardCamera = space.ZVector
@@ -1586,7 +1670,8 @@ local function stepBlackHole(arena, item, dt)
 			end
 			part.AssemblyLinearVelocity = velocity
 			arena.armed = true
-			if distance <= GRIND_RADIUS and arena.noob.attached[part] then
+			local limb = part ~= arena.noob.torso and part ~= arena.noob.parts[2]
+			if distance <= GRIND_RADIUS and limb and arena.noob.attached[part] then
 				table.insert(grinding, part)
 			end
 		end
@@ -1745,6 +1830,11 @@ function Items.step(arena, item, dt)
 		end
 		if weapon.id == "BlackHole" then
 			stepBlackHole(arena, item, dt)
+			-- Didn't catch the noob in time: it shrinks away anyway
+			if not item.broken and item.fuseTime >= weapon.fuse then
+				collapseBlackHole(arena, item)
+			end
+			return
 		end
 		if item.fuseTime >= weapon.fuse then
 			Items.detonate(arena, item)
