@@ -51,22 +51,93 @@ public static class GameArtScenes
         NukePass(Path.Combine(passes, "mini-nuke.png"));
     }
 
-    // 1. The game in one picture: a noob blasted across a test room, big numbers flying
+    // The noob without its left arm (it's just popped off)
+    static Bitmap NoobNoLeftArm(int size, double tx, double ty, double tz, double head, double ra, double ll, double rl)
+    {
+        var m = new GameArt.Model { MeshPath = mesh, FacePath = face };
+        var t = GameArt.M3.Angles(tx, ty, tz);
+        m.Box(new GameArt.V3(0, 0, 0), t, new GameArt.V3(2, 2, 1), GameArt.Blue);
+        Action<GameArt.V3, GameArt.V3, double, Color, bool> limb = (joint, hang, angle, col, isHead) =>
+        {
+            var r = t.Then(GameArt.M3.Angles(0, 0, angle));
+            var c = t.Apply(joint) + r.Apply(hang);
+            if (isHead) m.Head(c, r, 1.25, col); else m.Box(c, r, new GameArt.V3(1, 2, 1), col);
+        };
+        limb(new GameArt.V3(0, 1, 0), new GameArt.V3(0, 0.5, 0), head, GameArt.Yellow, true);
+        limb(new GameArt.V3(1.5, 0.5, 0), new GameArt.V3(0, -0.5, 0), ra, GameArt.Yellow, false);
+        limb(new GameArt.V3(-0.5, -1, 0), new GameArt.V3(0, -1, 0), -ll, GameArt.Green, false);
+        limb(new GameArt.V3(0.5, -1, 0), new GameArt.V3(0, -1, 0), rl, GameArt.Green, false);
+        return GameArt.RenderNoob(m, size, 1.0);
+    }
+
+    // Dark edges, so the eye goes straight to the middle
+    static void Vignette(Graphics g, int width, int height, int alpha)
+    {
+        using (var path = new GraphicsPath())
+        {
+            path.AddEllipse(width / 2f - width * 0.75f, height / 2f - height * 0.8f, width * 1.5f, height * 1.6f);
+            using (var brush = new PathGradientBrush(path) { CenterColor = Color.FromArgb(0, 0, 0, 0), SurroundColors = new[] { Color.FromArgb(alpha, 5, 0, 15) }, FocusScales = new PointF(0.45f, 0.45f) })
+                g.FillRectangle(brush, 0, 0, width, height);
+        }
+    }
+
+    // 1. The game in one picture: the room in darkness, lit only by a huge blast, and the
+    // noob blasted toward the camera with an arm popping off, debris and a shockwave flying
     static void Hero(string path)
     {
         using (var bmp = new Bitmap(1920, 1080))
         using (var g = GameArt.Prepare(bmp))
         {
+            var rng = new Random(11);
+            float bx = 400, by = 850; // the blast
             GameArt.Room(g, new RectangleF(0, 0, 1920, 1080), null);
-            using (var tnt = Thing(GameArt.BigTNT(), 300, 2, 1.2, -7, 35)) GameArt.Place(g, tnt, 520, 900, 260, 0);
-            GameArt.Explosion(g, 560, 820, 330, 1);
-            using (var noob = Noob(900, 10, 25, -30, 20, 130, 60, 40, -25)) GameArt.Place(g, noob, 1200, 520, 820, -8);
-            Popup(g, "-2,250 HEAD!", 1610, 300, 78, Color.FromArgb(255, 210, 40), -6);
-            Popup(g, "-1,700 LEFT ARM", 1530, 760, 62, Color.FromArgb(255, 210, 40), 4);
-            Popup(g, "COMBO x4!", 1420, 120, 80, Color.FromArgb(255, 140, 30), 0);
-            GameArt.Title(g, "RAGDOLL", "Arial Black", 165, new RectangleF(30, 40, 900, 230), Gold1, Gold2, Ink, 26, StringAlignment.Near, -4);
-            GameArt.Title(g, "PVP", "Arial Black", 230, new RectangleF(60, 230, 700, 260), Color.FromArgb(255, 120, 200), Color.FromArgb(200, 40, 140), Ink, 28, StringAlignment.Near, -4);
-            GameArt.Title(g, "SMASH THE NOOB!", "Arial Black", 96, new RectangleF(980, 900, 920, 150), Color.White, Color.FromArgb(200, 220, 255), Ink, 18, StringAlignment.Far, 0);
+            Shade(g, new Rectangle(0, 0, 1920, 1080), 225);
+            // The blast lights up the room near it in orange; the far side stays dark
+            GameArt.Glow(g, bx, by, 950, Color.FromArgb(255, 110, 25), false);
+            GameArt.Glow(g, bx, by, 560, Color.FromArgb(255, 200, 90));
+            // Speed lines streaking away from the blast
+            for (int i = 0; i < 46; i++)
+            {
+                double a = -1.35 + rng.NextDouble() * 1.45; // up and to the right
+                float d0 = 250 + (float)rng.NextDouble() * 350, d1 = d0 + 300 + (float)rng.NextDouble() * 700;
+                using (var pen = new Pen(Color.FromArgb(40 + rng.Next(90), 255, 235, 200), 3 + (float)rng.NextDouble() * 7) { StartCap = LineCap.Triangle, EndCap = LineCap.Round })
+                    g.DrawLine(pen, bx + (float)Math.Cos(a) * d0, by + (float)Math.Sin(a) * d0, bx + (float)Math.Cos(a) * d1, by + (float)Math.Sin(a) * d1);
+            }
+            // The shockwave ring
+            using (var pen = new Pen(Color.FromArgb(150, 255, 240, 200), 22)) g.DrawEllipse(pen, bx - 640, by - 430, 1280, 860);
+            using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 8)) g.DrawEllipse(pen, bx - 700, by - 470, 1400, 940);
+            GameArt.Explosion(g, bx, by, 400, 3);
+            // Bits of debris flying out, with little streaks behind them
+            for (int i = 0; i < 26; i++)
+            {
+                double a = -1.4 + rng.NextDouble() * 1.6;
+                float d = 450 + (float)rng.NextDouble() * 900, s = 10 + (float)rng.NextDouble() * 26;
+                float x = bx + (float)Math.Cos(a) * d, y = by + (float)Math.Sin(a) * d;
+                using (var pen = new Pen(Color.FromArgb(70, 255, 220, 170), s * 0.5f)) g.DrawLine(pen, x, y, x - (float)Math.Cos(a) * s * 4, y - (float)Math.Sin(a) * s * 4);
+                var state = g.Save();
+                g.TranslateTransform(x, y);
+                g.RotateTransform(rng.Next(360));
+                int shade = 50 + rng.Next(60);
+                using (var b = new SolidBrush(Color.FromArgb(shade, shade, shade + 8))) g.FillRectangle(b, -s / 2, -s / 3, s, s * 0.66f);
+                using (var pen = new Pen(Color.FromArgb(255, 170, 70), 2)) g.DrawRectangle(pen, -s / 2, -s / 3, s, s * 0.66f);
+                g.Restore(state);
+            }
+            // The noob, blasted right at the camera, lit from behind
+            GameArt.Glow(g, 1180, 560, 430, Color.FromArgb(255, 90, 20), false);
+            using (var noob = NoobNoLeftArm(1000, 15, 35, -25, 25, 70, 55, -40)) GameArt.Place(g, noob, 1240, 500, 1050, -14);
+            // ...and its arm, popping off
+            var arm = new GameArt.Model();
+            arm.Box(new GameArt.V3(0, 0, 0), GameArt.M3.Angles(20, 30, 0), new GameArt.V3(1, 2, 1), GameArt.Yellow);
+            using (var img = GameArt.Render(arm, 500, new GameArt.V3(1.2, 1, -6), new GameArt.V3(0, 0, 0), 32, 3))
+                GameArt.Place(g, img, 1720, 840, 380, 48);
+            GameArt.Glow(g, 1620, 760, 90, Color.FromArgb(255, 240, 150));
+            Vignette(g, 1920, 1080, 250);
+
+            Popup(g, "POP!", 1760, 690, 92, Color.FromArgb(255, 80, 60), 12);
+            Popup(g, "-12,500 TORSO!", 1580, 75, 68, Color.FromArgb(255, 90, 40), -4);
+            Popup(g, "COMBO x8!", 1020, 980, 70, Color.FromArgb(255, 210, 40), -3);
+            GameArt.Title(g, "RAGDOLL", "Arial Black", 165, new RectangleF(30, 30, 900, 230), Gold1, Gold2, Ink, 26, StringAlignment.Near, -4);
+            GameArt.Title(g, "PVP", "Arial Black", 240, new RectangleF(60, 225, 700, 270), Color.FromArgb(255, 110, 80), Color.FromArgb(200, 20, 20), Ink, 30, StringAlignment.Near, -4);
             GameArt.Save(bmp, path);
         }
     }
