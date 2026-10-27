@@ -16,6 +16,8 @@ local HANG_TIME = 4 -- seconds in the air without touching the floor
 local COMBO_KING = 15
 local HAT_TRICK = 3 -- noobs destroyed in one round
 local EXTRA_CRISPY = 4 -- body parts burning at once
+local FALLING_TO_PIECES = 8 -- limbs torn off in one round
+local BIG_RUN = 25000 -- points (the shown score) in one run
 
 -- Achievements for hitting the noob with a certain weapon
 local WEAPON_ACHIEVEMENTS = {
@@ -129,6 +131,9 @@ function AchievementService.onHit(player, arena, source, parts)
 			AchievementService.award(player, "Bombing")
 		end
 	end
+	if arena.inRun and arena.runDamage >= BIG_RUN then
+		AchievementService.award(player, "BigRun")
+	end
 	if arena.combo >= COMBO_KING then
 		AchievementService.award(player, "ComboKing")
 	end
@@ -157,6 +162,10 @@ function AchievementService.onPartHit(player, arena, source, partKey, outcome)
 		end
 	end
 	if outcome == "Torn" then
+		arena.roundStats.limbsTorn += 1
+		if arena.roundStats.limbsTorn >= FALLING_TO_PIECES then
+			AchievementService.award(player, "FallingToPieces")
+		end
 		if source == "Mine" then
 			AchievementService.award(player, "RedWire")
 		end

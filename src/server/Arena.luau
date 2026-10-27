@@ -119,7 +119,7 @@ function Arena:resetScore()
 	self.ignoreImpactUntil = 0
 	self.lastSpeed = 0
 	self.airTime = 0 -- seconds in the air not yet paid out as cash
-	self.roundStats = { arrowHits = 0, mineHits = 0, destroys = 0 } -- for achievements
+	self.roundStats = { arrowHits = 0, mineHits = 0, destroys = 0, limbsTorn = 0 } -- for achievements
 	self.runStats = { wallHits = 0 }
 end
 

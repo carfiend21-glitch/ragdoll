@@ -47,6 +47,8 @@ Achievements.list = {
 	{ id = "ComboKing", name = "Combo King", description = "Build a 15-hit combo.", reward = 200 },
 	{ id = "HatTrick", name = "Hat Trick", description = "Destroy the noob 3 times in one round.", reward = 200 },
 	{ id = "ExtraCrispy", name = "Extra Crispy", description = "Have 4 body parts on fire at the same time.", reward = 160 },
+	{ id = "FallingToPieces", name = "Falling to Pieces", description = "Knock off 8 limbs in one round.", reward = 200 },
+	{ id = "BigRun", name = "Big Run", description = "Deal 25,000 damage in one run.", reward = 160 },
 
 	-- One for each of the newer weapons
 	{ id = "Pincushion", name = "Pincushion", description = "Stab the noob with spikes 5 times in one run." },
