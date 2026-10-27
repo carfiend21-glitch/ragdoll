@@ -46,14 +46,14 @@ local CLASSIC_GREEN = BrickColor.new("Br. yellowish green").Color
 -- Pass (the shop only shows a Robux button once its `gamePassId` is set in Weapons.luau).
 ShopItems.list = {
 	-- Exclusive weapons: only from the shop, with Noob Bucks
-	{ id = "UnlockGravityFlipper", category = "Exclusive", kind = "unlock", weapon = "GravityFlipper", name = "Gravity Flipper", price = 25, new = true },
-	{ id = "UnlockFreezeRay", category = "Exclusive", kind = "unlock", weapon = "FreezeRay", name = "Freeze Ray", price = 30, new = true },
-	{ id = "UnlockAcidBlaster", category = "Exclusive", kind = "unlock", weapon = "AcidBlaster", name = "Acid Blaster", price = 30, new = true },
-	{ id = "UnlockStormCloud", category = "Exclusive", kind = "unlock", weapon = "StormCloud", name = "Storm Cloud", price = 35, new = true },
-	{ id = "UnlockBanHammer", category = "Exclusive", kind = "unlock", weapon = "BanHammer", name = "Ban Hammer", price = 40, new = true },
-	{ id = "UnlockRailgun", category = "Exclusive", kind = "unlock", weapon = "Railgun", name = "Railgun", price = 45, new = true },
-	{ id = "UnlockMinigun", category = "Exclusive", kind = "unlock", weapon = "Minigun", name = "Minigun", price = 55, new = true },
-	{ id = "UnlockMissileSwarm", category = "Exclusive", kind = "unlock", weapon = "MissileSwarm", name = "Missile Swarm", price = 55, new = true },
+	{ id = "UnlockGravityFlipper", category = "Exclusive", kind = "unlock", weapon = "GravityFlipper", name = "Gravity Flipper", price = 15, new = true },
+	{ id = "UnlockFreezeRay", category = "Exclusive", kind = "unlock", weapon = "FreezeRay", name = "Freeze Ray", price = 20, new = true },
+	{ id = "UnlockAcidBlaster", category = "Exclusive", kind = "unlock", weapon = "AcidBlaster", name = "Acid Blaster", price = 20, new = true },
+	{ id = "UnlockStormCloud", category = "Exclusive", kind = "unlock", weapon = "StormCloud", name = "Storm Cloud", price = 25, new = true },
+	{ id = "UnlockBanHammer", category = "Exclusive", kind = "unlock", weapon = "BanHammer", name = "Ban Hammer", price = 25, new = true },
+	{ id = "UnlockRailgun", category = "Exclusive", kind = "unlock", weapon = "Railgun", name = "Railgun", price = 30, new = true },
+	{ id = "UnlockMinigun", category = "Exclusive", kind = "unlock", weapon = "Minigun", name = "Minigun", price = 40, new = true },
+	{ id = "UnlockMissileSwarm", category = "Exclusive", kind = "unlock", weapon = "MissileSwarm", name = "Missile Swarm", price = 40, new = true },
 	-- Robux only: these two can't be bought with Noob Bucks (only tried for a round, below).
 	-- `price` is 0 because they cost no Noob Bucks; `robux` is what the Game Pass costs.
 	{ id = "RobuxBlackHole", category = "Exclusive", kind = "robux", weapon = "BlackHole", name = "Black Hole", price = 0, robux = 299, new = true },
@@ -78,7 +78,7 @@ ShopItems.list = {
 	{ id = "UnlockFlamethrower", category = "Weapon", kind = "unlock", weapon = "Flamethrower", name = "Flamethrower", price = 30 },
 
 	-- 1-round trials: a cheap taste of a weapon you don't have (only used up once it's
-	-- been placed in a round). After about 8 trials, unlocking it is the better deal.
+	-- been placed in a round). After about 5-8 trials, unlocking it is the better deal.
 	{ id = "RentRocketLauncher", category = "Trial", kind = "rent", weapon = "RocketLauncher", name = "Rocket Launcher", price = 3 },
 	{ id = "RentGravityFlipper", category = "Trial", kind = "rent", weapon = "GravityFlipper", name = "Gravity Flipper", price = 3 },
 	{ id = "RentFreezeRay", category = "Trial", kind = "rent", weapon = "FreezeRay", name = "Freeze Ray", price = 3 },
@@ -107,7 +107,7 @@ ShopItems.list = {
 		kind = "bundle",
 		name = "Storm Chaser",
 		contents = { "UnlockStormCloud", "UnlockTeslaCoil", "StormTrail" },
-		price = 55,
+		price = 50,
 	},
 	{
 		id = "BundleScientist",
@@ -115,7 +115,7 @@ ShopItems.list = {
 		kind = "bundle",
 		name = "Mad Scientist",
 		contents = { "UnlockFreezeRay", "UnlockAcidBlaster", "UnlockRailgun", "ScientistTitle" },
-		price = 85,
+		price = 60,
 	},
 	{
 		id = "BundleDoomsday",
@@ -123,7 +123,7 @@ ShopItems.list = {
 		kind = "bundle",
 		name = "Doomsday",
 		contents = { "UnlockMinigun", "UnlockMissileSwarm", "LavaNoob" },
-		price = 105,
+		price = 85,
 	},
 
 	-- Noob skins: what the noob in your room looks like (everyone watching sees it too)
